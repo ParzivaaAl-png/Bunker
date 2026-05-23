@@ -525,12 +525,14 @@ function manageVoiceMuteState() {
 
   updateMicBtnUI(!finalMuteState, userMutedSelf ? "Вручную выкл" : (!shouldBeUnmuted ? "Очередь выкл" : "Активен"));
 
-  // Inform host of my mic state
+  // Inform host of my mic state only if it actually changed to prevent infinite loops!
   if (!isHost) {
-    sendToHost({
-      type: "MIC_STATUS",
-      isMuted: finalMuteState
-    });
+    if (myPlayer.micMuted !== finalMuteState) {
+      sendToHost({
+        type: "MIC_STATUS",
+        isMuted: finalMuteState
+      });
+    }
   } else {
     myPlayer.micMuted = finalMuteState;
   }
