@@ -175,10 +175,11 @@ function setupHostLobby(nickname, roomCode) {
 function setupHostConnection(conn) {
   conn.on("open", () => {
     console.log("Client connected via data channel:", conn.peer);
+    clientConns[conn.peer] = conn;
     
     // Listen for data from client
     conn.on("data", (data) => {
-      handleClientMessage(conn.peer, data);
+      handleClientMessage(conn.peer, data, conn);
     });
 
     conn.on("close", () => {
@@ -225,37 +226,40 @@ function setupClientLobby(nickname, roomCode) {
 // -----------------------------------------------------------------------------
 
 // HOST receives from CLIENT
-function handleClientMessage(clientPeerId, msg) {
+function handleClientMessage(clientPeerId, msg, conn) {
   console.log("Host received message:", msg, "from", clientPeerId);
   
   if (msg.type === "JOIN") {
     // Prevent double joins
     if (gameState.players.some(p => p.nickname === msg.nickname)) {
-      sendToClientDirect(clientPeerId, {
+      conn.send({
         type: "ERROR",
         message: "Имя уже занято в этой комнате."
       });
+      setTimeout(() => conn.close(), 1000);
       return;
     }
     
     if (gameState.players.length >= 16) {
-      sendToClientDirect(clientPeerId, {
+      conn.send({
         type: "ERROR",
         message: "Комната переполнена (макс. 16 игроков)."
       });
+      setTimeout(() => conn.close(), 1000);
       return;
     }
 
     if (gameState.status !== "lobby") {
-      sendToClientDirect(clientPeerId, {
+      conn.send({
         type: "ERROR",
         message: "Игра уже запущена."
       });
+      setTimeout(() => conn.close(), 1000);
       return;
     }
 
-    // Save client connection
-    clientConns[clientPeerId] = peer.connect(clientPeerId);
+    // Save client connection (ensure it is in active list)
+    clientConns[clientPeerId] = conn;
 
     // Register player
     gameState.players.push({
@@ -380,15 +384,6 @@ function sendToHost(data) {
   if (hostConn && hostConn.open) {
     hostConn.send(data);
   }
-}
-
-function sendToClientDirect(clientPeerId, data) {
-  // Temporary data connection for errors or rejected joins
-  const tempConn = peer.connect(clientPeerId);
-  tempConn.on("open", () => {
-    tempConn.send(data);
-    setTimeout(() => tempConn.close(), 1000);
-  });
 }
 
 // Hiding private info in broadcast
@@ -554,7 +549,8 @@ function updateMicBtnUI(active, labelText) {
 function startGame() {
   if (!isHost) return;
   if (gameState.players.length < 4) {
-    showNotification("Внимание: Для полноценной игры рекомендуется не менее 4 человек.");
+    showNotification("Ошибка: Для запуска игры необходимо не менее 4 человек.");
+    return;
   }
 
   // 1. Draw Global catastrophe
@@ -1077,7 +1073,7 @@ function updateLobbyUI() {
 
   // Enable/disable start button for admin
   if (isHost) {
-    startBtn.disabled = gameState.players.length < 2; // For testing, allow starting with 2+ players
+    startBtn.disabled = gameState.players.length < 4;
   }
 }
 
