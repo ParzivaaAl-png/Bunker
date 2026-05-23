@@ -173,7 +173,7 @@ function setupHostLobby(nickname, roomCode) {
 }
 
 function setupHostConnection(conn) {
-  conn.on("open", () => {
+  const onOpen = () => {
     console.log("Client connected via data channel:", conn.peer);
     clientConns[conn.peer] = conn;
     
@@ -186,7 +186,13 @@ function setupHostConnection(conn) {
       console.log("Client disconnected:", conn.peer);
       handlePlayerDisconnect(conn.peer);
     });
-  });
+  };
+
+  if (conn.open) {
+    onOpen();
+  } else {
+    conn.on("open", onOpen);
+  }
 }
 
 // CLIENT SETUPS
@@ -194,7 +200,7 @@ function setupClientLobby(nickname, roomCode) {
   const hostId = `bunker-room-${roomCode}`;
   hostConn = peer.connect(hostId);
 
-  hostConn.on("open", () => {
+  const onOpen = () => {
     console.log("Connected to Host data channel");
     
     // Send JOIN request
@@ -212,7 +218,13 @@ function setupClientLobby(nickname, roomCode) {
       showNotification("Потеряно соединение с администратором комнаты.");
       resetConnection();
     });
-  });
+  };
+
+  if (hostConn.open) {
+    onOpen();
+  } else {
+    hostConn.on("open", onOpen);
+  }
 
   document.getElementById("lobby-waiting-panel").className = "lobby-card card-glass animate-fade-in";
   document.getElementById("lobby-room-code").textContent = roomCode;
