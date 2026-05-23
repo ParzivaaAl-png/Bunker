@@ -1,0 +1,11 @@
+.DS_Store
+ocr.swift
+pdf_ocr.swift
+image_ascii.py
+crop_and_ocr.py
+pdf_text.txt
+crop_*.png
+temp/
+node_modules/
+dist/
+.env*
