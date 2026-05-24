@@ -33,6 +33,9 @@ let hostDecks = {};
 window.addEventListener("DOMContentLoaded", () => {
   initUIEvents();
   checkUrlHashForRoom();
+  if (window.init3D) {
+    window.init3D();
+  }
 });
 
 // Check if room code is in the URL hash (e.g. #A7B8)
@@ -1027,6 +1030,14 @@ function syncGameUI() {
     // Update My Cards
     renderMyCards();
 
+    // Update 3D Deck and Spotlight speaker card
+    if (window.update3DDeck) {
+      window.update3DDeck(gameState.players, myPeerId);
+    }
+    if (window.update3DSpotlight) {
+      window.update3DSpotlight(gameState.activeSpeakerId, gameState.players, gameState.round);
+    }
+
     // Render voting controls if voting phase is active
     renderVotingControls();
 
@@ -1382,6 +1393,13 @@ function renderLogs() {
   
   // Auto scroll logs to bottom
   box.scrollTop = box.scrollHeight;
+
+  // Premium Alert Badge logic: show notification badge if controls sidebar is closed!
+  const sidebar = document.getElementById("controls-sidebar");
+  if (sidebar && !sidebar.classList.contains("active")) {
+    const badge = document.getElementById("logs-badge");
+    if (badge) badge.style.display = "inline-block";
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -1710,3 +1728,54 @@ function hideNotification() {
     banner.className = "notification-banner hidden";
   }
 }
+
+// -----------------------------------------------------------------------------
+// 9. NEW CINEMATIC INTERFACE SIDEBAR & MODAL TOGGLES
+// -----------------------------------------------------------------------------
+
+function toggleLeftSidebar() {
+  const sidebar = document.getElementById("players-sidebar");
+  if (sidebar) {
+    sidebar.classList.toggle("active");
+  }
+}
+
+function toggleRightSidebar() {
+  const sidebar = document.getElementById("controls-sidebar");
+  if (sidebar) {
+    sidebar.classList.toggle("active");
+    
+    // Auto hide notification badge when log is opened
+    const badge = document.getElementById("logs-badge");
+    if (badge) badge.style.display = "none";
+  }
+}
+
+function toggleApocalypseOverlay() {
+  const overlay = document.getElementById("apocalypse-overlay");
+  if (overlay) {
+    overlay.classList.toggle("hidden");
+  }
+}
+
+function switchSidebarTab(tabName) {
+  const tabs = document.querySelectorAll(".sidebar-tab-btn");
+  const contents = document.querySelectorAll(".sidebar-tab-content");
+
+  tabs.forEach(t => t.classList.remove("active"));
+  contents.forEach(c => c.classList.remove("active"));
+
+  if (tabName === 'log-tab') {
+    tabs[0].classList.add("active");
+    document.getElementById("sidebar-tab-log").classList.add("active");
+  } else {
+    tabs[1].classList.add("active");
+    document.getElementById("sidebar-tab-specials").classList.add("active");
+  }
+}
+
+// Bind sidebar controls to global window for index.html onclick calls
+window.toggleLeftSidebar = toggleLeftSidebar;
+window.toggleRightSidebar = toggleRightSidebar;
+window.toggleApocalypseOverlay = toggleApocalypseOverlay;
+window.switchSidebarTab = switchSidebarTab;

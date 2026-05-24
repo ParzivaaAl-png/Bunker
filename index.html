@@ -14,6 +14,10 @@
   <link rel="stylesheet" href="style.css">
   <!-- PeerJS Library for Peer-to-Peer connection -->
   <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+  <!-- Three.js for 3D card rendering -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- GSAP for smooth 3D animations -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
 </head>
 <body>
 
@@ -99,28 +103,201 @@
   <section id="screen-game" class="screen">
     <div class="game-layout">
       
-      <!-- Top Bar: Game info, Catastrophe, Bunker details -->
-      <header class="game-header card-glass">
-        <!-- Room Info and Timing -->
-        <div class="header-main-info">
-          <div class="room-indicator">
-            Код комнаты: <span id="game-room-code" class="neon-text">-</span>
+      <!-- Top Control Bar (Room code, toggle buttons for sidebars) -->
+      <nav class="game-top-bar card-glass">
+        <div class="room-indicator">
+          Код комнаты: <span id="game-room-code" class="neon-text">-</span>
+        </div>
+        
+        <div class="top-nav-buttons">
+          <button id="btn-toggle-players" class="btn btn-secondary btn-small" onclick="toggleLeftSidebar()">
+            <i class="fa-solid fa-users"></i> Выжившие (<span id="game-alive-count">0</span>/<span id="game-total-count">0</span>)
+          </button>
+          <button id="btn-toggle-apocalypse" class="btn btn-secondary btn-small" onclick="toggleApocalypseOverlay()">
+            <i class="fa-solid fa-biohazard"></i> Угроза Апокалипсиса
+          </button>
+          <button id="btn-toggle-controls" class="btn btn-secondary btn-small" onclick="toggleRightSidebar()">
+            <i class="fa-solid fa-scroll"></i> Журнал и Пульт <span class="badge" id="logs-badge" style="display:none;">!</span>
+          </button>
+        </div>
+      </nav>
+
+      <!-- Main Game Grid containing collapsing sidebars and central spotlight -->
+      <div class="game-main-content">
+        
+        <!-- Left Sidebar: Survivors List -->
+        <aside id="players-sidebar" class="sidebar left-sidebar card-glass">
+          <div class="sidebar-header">
+            <h3><i class="fa-solid fa-users"></i> Список выживших</h3>
+            <button class="sidebar-close-btn" onclick="toggleLeftSidebar()">&times;</button>
           </div>
-          <div class="phase-indicator">
-            <div class="phase-title" id="game-phase-title">Круг 1: Профессия</div>
-            <div class="phase-details" id="game-phase-details">Каждый игрок раскрывает профессию (1 минута)</div>
+          <div class="sidebar-body">
+            <div class="players-grid" id="players-grid">
+              <!-- Dynamically populated with player cards -->
+            </div>
           </div>
-          <div class="timer-box" id="timer-box">
-            <i class="fa-regular fa-clock"></i>
-            <span id="game-timer">01:00</span>
+        </aside>
+
+        <!-- Central Spotlight Area: ONLY the active speaker and their flipping 3D card -->
+        <main class="center-spotlight-zone">
+          
+          <!-- Phase Title and Timing details -->
+          <div class="phase-display-box card-glass">
+            <div class="phase-indicator">
+              <div class="phase-title" id="game-phase-title">Запуск систем...</div>
+              <div class="phase-details" id="game-phase-details">Идет синхронизация раундов...</div>
+            </div>
+            <div class="timer-box" id="timer-box">
+              <i class="fa-regular fa-clock"></i>
+              <span id="game-timer">--:--</span>
+            </div>
+          </div>
+
+          <!-- Active Speaker Card spotlight box -->
+          <div class="active-speaker-spotlight" id="active-speaker-box">
+            <div class="spotlight-frame">
+              <div class="speaker-light-glow"></div>
+              
+              <!-- Spotlight Title / Speaker Name -->
+              <div class="speaker-meta">
+                <span class="speaker-badge-neon"><i class="fa-solid fa-bullhorn animate-pulse"></i> В ЭФИРЕ</span>
+                <h2 id="active-speaker-name" class="active-speaker-name-text">Общая дискуссия</h2>
+                <p id="speaker-status-tip" class="speaker-status-text">Свободное общение для всех выживших.</p>
+              </div>
+
+              <!-- Active Speaker 3D Card Canvas -->
+              <div class="speaker-3d-card-wrapper">
+                <canvas id="active-speaker-3d-canvas"></canvas>
+              </div>
+            </div>
+          </div>
+
+        </main>
+
+        <!-- Right Sidebar: Logs, Chat, Voting, Admin tools -->
+        <aside id="controls-sidebar" class="sidebar right-sidebar card-glass">
+          <div class="sidebar-header">
+            <h3><i class="fa-solid fa-gears"></i> Панель управления</h3>
+            <button class="sidebar-close-btn" onclick="toggleRightSidebar()">&times;</button>
+          </div>
+          <div class="sidebar-body">
+            
+            <!-- Voting Actions Box (visible only during voting phases) -->
+            <div class="voting-box card-glass hidden" id="voting-box">
+              <h2><i class="fa-solid fa-square-poll-vertical"></i> ГОЛОСОВАНИЕ</h2>
+              <p id="voting-instruction">Выберите игрока, которого вы хотите оставить в лесу:</p>
+              <div class="voting-buttons" id="voting-buttons-container">
+                <!-- Voting options populated dynamically -->
+              </div>
+              <div class="my-vote-status" id="my-vote-status">Вы еще не проголосовали.</div>
+            </div>
+
+            <!-- Admin Control Dashboard (visible only to host) -->
+            <div class="admin-game-dashboard card-glass hidden" id="admin-game-dashboard">
+              <h3><i class="fa-solid fa-shield-halved"></i> Консоль Администратора</h3>
+              
+              <div class="admin-action-row">
+                <button id="btn-admin-prev-turn" class="btn btn-secondary btn-small"><i class="fa-solid fa-chevron-left"></i> Пред. ход</button>
+                <button id="btn-admin-next-turn" class="btn btn-primary btn-small">След. ход <i class="fa-solid fa-chevron-right"></i></button>
+              </div>
+              
+              <div class="admin-state-triggers">
+                <button id="btn-admin-start-voting" class="btn btn-warning"><i class="fa-solid fa-check-to-slot"></i> Запустить голосование</button>
+                <button id="btn-admin-start-defense" class="btn btn-secondary hidden"><i class="fa-solid fa-shield"></i> Запустить защиту номинантов</button>
+                <button id="btn-admin-finish-round" class="btn btn-danger"><i class="fa-solid fa-skull"></i> Завершить изгнание</button>
+              </div>
+
+              <div class="admin-phase-selection">
+                <label for="admin-select-phase">Перейти к фазе:</label>
+                <select id="admin-select-phase">
+                  <option value="discussion_1">Круг 1: Профессия (1м)</option>
+                  <option value="discussion_2">Круг 2: Характеристика 2 (30с)</option>
+                  <option value="voting_1">Голосование 1 (изгнание 1)</option>
+                  <option value="discussion_3">Круг 3: Характеристика 3 (30с)</option>
+                  <option value="discussion_4">Круг 4: Характеристика 4 (30с)</option>
+                  <option value="voting_2">Голосование 2 (изгнание 2)</option>
+                  <option value="discussion_5">Круг 5: Характеристика 5 (30с)</option>
+                  <option value="voting_3">Голосование 3 (изгнание 3)</option>
+                  <option value="discussion_6">Круг 6: Характеристика 6 (30с)</option>
+                  <option value="voting_4">Голосование 4 (изгнание 4)</option>
+                  <option value="discussion_7">Круг 7: Характеристика 7 (30с)</option>
+                  <option value="voting_5">Голосование 5 (изгнание 2 игроков)</option>
+                  <option value="game_over">Итоги (финал)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Tabs for Logs & Action status -->
+            <div class="sidebar-tabs">
+              <button class="sidebar-tab-btn active" onclick="switchSidebarTab('log-tab')"><i class="fa-solid fa-scroll"></i> Логи игры</button>
+              <button class="sidebar-tab-btn" onclick="switchSidebarTab('specials-tab')"><i class="fa-solid fa-bolt"></i> Спец-карты</button>
+            </div>
+
+            <!-- Tab Content 1: Logs -->
+            <div id="sidebar-tab-log" class="sidebar-tab-content active">
+              <div class="log-container" id="game-log-box">
+                <!-- Dynamically populated with logs -->
+              </div>
+            </div>
+
+            <!-- Tab Content 2: Special Cards hand -->
+            <div id="sidebar-tab-specials" class="sidebar-tab-content">
+              <div class="private-specials-section">
+                <h3>Специальные условия</h3>
+                <div id="private-specials" class="specials-list">
+                  <!-- Dynamically populated with play buttons -->
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </aside>
+
+      </div>
+
+      <!-- Bottom Interactive Hand Zone (Always visible at the bottom) -->
+      <footer class="game-bottom-hand-zone card-glass">
+        
+        <!-- Voice/Mic status controller -->
+        <div class="bottom-hand-meta">
+          <div class="voice-controls">
+            <button id="btn-toggle-mic" class="btn-circle btn-mic-off" title="Включить/выключить микрофон">
+              <i class="fa-solid fa-microphone-slash"></i>
+            </button>
+            <div class="mic-status-text">
+              Микрофон: <span id="mic-status-label" class="muted">Выключен</span>
+            </div>
+          </div>
+          <div class="bottom-deck-tip">
+            <i class="fa-solid fa-circle-info"></i> Ваше досье. Нажмите на карту для детального рассмотрения.
           </div>
         </div>
 
-        <!-- Global Cards (Catastrophe & Bunker) -->
+        <!-- 3D Interactive Hand Canvas -->
+        <div class="my-3d-deck-wrapper">
+          <canvas id="my-3d-deck-canvas"></canvas>
+        </div>
+
+        <!-- Hidden Fallback Container to keep original game.js logic functioning without breaking references -->
+        <div id="private-characteristics" style="display: none;"></div>
+      </footer>
+
+    </div>
+  </section>
+
+  <!-- Apocalypse Overlay Panel (Global catastrophe and Bunker properties) -->
+  <div id="apocalypse-overlay" class="apocalypse-overlay hidden">
+    <div class="apocalypse-modal card-glass">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-triangle-exclamation text-neon-red"></i> Условия выживания группы</h2>
+        <button class="modal-close-btn" onclick="toggleApocalypseOverlay()">&times;</button>
+      </div>
+      <div class="modal-body">
+        
         <div class="global-cards">
           <!-- Catastrophe Card -->
           <div class="global-card catastrophe-card" id="card-catastrophe">
-            <div class="card-title"><i class="fa-solid fa-biohazard"></i> Катастрофа</div>
+            <div class="card-title"><i class="fa-solid fa-biohazard"></i> Катастрофа на поверхности</div>
             <div class="card-body">
               <h3 id="catastrophe-title">Выбор катастрофы...</h3>
               <p id="catastrophe-desc">Идет загрузка параметров апокалипсиса...</p>
@@ -133,137 +310,46 @@
 
           <!-- Bunker Card -->
           <div class="global-card bunker-card" id="card-bunker">
-            <div class="card-title"><i class="fa-solid fa-door-closed"></i> Описание бункера</div>
+            <div class="card-title"><i class="fa-solid fa-door-closed"></i> Системы Убежища</div>
             <div class="card-body">
               <h3 id="bunker-title">Характеристики бункера...</h3>
               <p id="bunker-desc">Идет сканирование систем убежища...</p>
             </div>
           </div>
         </div>
-      </header>
 
-      <!-- Main Game Grid -->
-      <main class="game-main">
-        
-        <!-- Left Column: Players Grid -->
-        <section class="players-section">
-          <h2 class="section-title"><i class="fa-solid fa-users"></i> Список выживших (<span id="game-alive-count">0</span> / <span id="game-total-count">0</span>)</h2>
-          <div class="players-grid" id="players-grid">
-            <!-- Dynamically populated with player cards -->
-          </div>
-        </section>
-
-        <!-- Right Column: Personal Cards / Actions & Logs -->
-        <section class="control-section">
-          
-          <!-- Tabs for Personal Cards / Logs -->
-          <div class="control-tabs">
-            <button class="tab-btn active" onclick="switchControlTab('my-cards')"><i class="fa-solid fa-address-card"></i> Мое досье</button>
-            <button class="tab-btn" onclick="switchControlTab('game-log')"><i class="fa-solid fa-scroll"></i> Журнал игры</button>
-          </div>
-
-          <!-- Tab Content 1: My Cards -->
-          <div id="tab-my-cards" class="tab-content active card-glass">
-            
-            <div class="voice-controls">
-              <button id="btn-toggle-mic" class="btn-circle btn-mic-off" title="Включить/выключить микрофон">
-                <i class="fa-solid fa-microphone-slash"></i>
-              </button>
-              <div class="mic-status-text">
-                Микрофон: <span id="mic-status-label" class="muted">Выключен</span>
-              </div>
-            </div>
-
-            <!-- List of characteristics belonging to the current player -->
-            <div class="private-cards-grid">
-              <h3>Характеристики персонажа</h3>
-              <p class="private-cards-note">Нажмите «Открыть», чтобы показать характеристику всем игрокам.</p>
-              
-              <div id="private-characteristics" class="private-chars-list">
-                <!-- Dynamically populated with reveal buttons -->
-              </div>
-            </div>
-
-            <!-- Special conditions section -->
-            <div class="private-specials-section">
-              <h3>Специальные условия</h3>
-              <div id="private-specials" class="specials-list">
-                <!-- Dynamically populated with play buttons -->
-              </div>
-            </div>
-          </div>
-
-          <!-- Tab Content 2: Game Log -->
-          <div id="tab-game-log" class="tab-content card-glass">
-            <div class="log-container" id="game-log-box">
-              <!-- Dynamically populated with logs -->
-            </div>
-          </div>
-
-          <!-- Active Speaking / Turn Box -->
-          <div class="active-speaker-box card-glass" id="active-speaker-box">
-            <div class="speaker-title"><i class="fa-solid fa-bullhorn animate-pulse"></i> СЕЙЧАС ГОВОРИТ</div>
-            <div class="speaker-name" id="active-speaker-name">Никто</div>
-            <div class="speaker-status-tip" id="speaker-status-tip">Ожидайте своей очереди.</div>
-          </div>
-
-          <!-- Voting Actions Box (visible only during voting phases) -->
-          <div class="voting-box card-glass hidden" id="voting-box">
-            <h2><i class="fa-solid fa-square-poll-vertical"></i> ГОЛОСОВАНИЕ</h2>
-            <p id="voting-instruction">Выберите игрока, которого вы хотите оставить в лесу:</p>
-            <div class="voting-buttons" id="voting-buttons-container">
-              <!-- Voting options populated dynamically -->
-            </div>
-            <div class="my-vote-status" id="my-vote-status">Вы еще не проголосовали.</div>
-          </div>
-
-          <!-- Admin Control Dashboard (visible only to sherzodgold host) -->
-          <div class="admin-game-dashboard card-glass hidden" id="admin-game-dashboard">
-            <h3><i class="fa-solid fa-shield-halved"></i> Консоль Администратора</h3>
-            
-            <div class="admin-action-row">
-              <button id="btn-admin-prev-turn" class="btn btn-secondary btn-small"><i class="fa-solid fa-chevron-left"></i> Пред. ход</button>
-              <button id="btn-admin-next-turn" class="btn btn-primary btn-small">След. ход <i class="fa-solid fa-chevron-right"></i></button>
-            </div>
-            
-            <div class="admin-state-triggers">
-              <button id="btn-admin-start-voting" class="btn btn-warning"><i class="fa-solid fa-check-to-slot"></i> Запустить голосование</button>
-              <button id="btn-admin-start-defense" class="btn btn-secondary hidden"><i class="fa-solid fa-shield"></i> Запустить защиту номинантов</button>
-              <button id="btn-admin-finish-round" class="btn btn-danger"><i class="fa-solid fa-skull"></i> Завершить изгнание</button>
-            </div>
-
-            <div class="admin-phase-selection">
-              <label for="admin-select-phase">Перейти к фазе:</label>
-              <select id="admin-select-phase">
-                <option value="discussion_1">Круг 1: Профессия (1м)</option>
-                <option value="discussion_2">Круг 2: Характеристика 2 (30с)</option>
-                <option value="voting_1">Голосование 1 (изгнание 1)</option>
-                <option value="discussion_3">Круг 3: Характеристика 3 (30с)</option>
-                <option value="discussion_4">Круг 4: Характеристика 4 (30с)</option>
-                <option value="voting_2">Голосование 2 (изгнание 2)</option>
-                <option value="discussion_5">Круг 5: Характеристика 5 (30с)</option>
-                <option value="voting_3">Голосование 3 (изгнание 3)</option>
-                <option value="discussion_6">Круг 6: Характеристика 6 (30с)</option>
-                <option value="voting_4">Голосование 4 (изгнание 4)</option>
-                <option value="discussion_7">Круг 7: Характеристика 7 (30с)</option>
-                <option value="voting_5">Голосование 5 (изгнание 2 игроков)</option>
-                <option value="game_over">Итоги (финал)</option>
-              </select>
-            </div>
-          </div>
-
-        </section>
-
-      </main>
-
+      </div>
     </div>
-  </section>
+  </div>
+
+  <!-- 3D Card Zoom/Inspect Modal overlay (Pops up with beautiful glassmorphism when clicking a card) -->
+  <div id="card-inspection-overlay" class="card-inspection-overlay hidden">
+    <div class="inspected-card-frame">
+      <div class="inspected-card card-glass" id="inspected-card-details">
+        <div class="inspected-card-category" id="inspected-card-cat-label">Категория</div>
+        <h2 class="inspected-card-title" id="inspected-card-title-text">Название</h2>
+        <p class="inspected-card-content" id="inspected-card-value-text">Описание характеристики...</p>
+        <div class="inspected-card-status-badge" id="inspected-card-status-badge">Скрыта</div>
+      </div>
+      
+      <!-- Actions Box -->
+      <div class="inspected-card-actions">
+        <button id="btn-inspect-reveal" class="btn btn-primary btn-large">
+          <i class="fa-solid fa-eye"></i> Раскрыть всем игрокам
+        </button>
+        <button id="btn-inspect-close" class="btn btn-secondary btn-large" onclick="closeCardInspection()">
+          <i class="fa-solid fa-rotate-left"></i> Вернуть в колоду
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- Audio elements container for WebRTC PeerJS voice streams -->
   <div id="audio-streams-container" style="display:none;"></div>
 
   <!-- Game scripts -->
   <script src="cards.js"></script>
+  <script src="deck3d.js"></script>
   <script src="game.js"></script>
 </body>
 </html>
