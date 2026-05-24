@@ -357,6 +357,11 @@ function handleClientMessage(clientPeerId, msg, conn) {
         broadcastState();
       }
     }
+  } else if (msg.type === "SKIP_TURN") {
+    if (clientPeerId === gameState.activeSpeakerId) {
+      addLocalLog(`Игрок ${getPlayerNickname(clientPeerId)} завершил свое выступление досрочно.`, "speech");
+      nextSpeakerOrPhase();
+    }
   }
 }
 
@@ -1112,20 +1117,36 @@ function syncGameUI() {
     const speakerBox = document.getElementById("active-speaker-box");
     const speakerNameEl = document.getElementById("active-speaker-name");
     const speakerTipEl = document.getElementById("speaker-status-tip");
+    const speakerSkipBtn = document.getElementById("btn-speaker-skip");
 
     if (gameState.activeSpeakerId) {
       const activeName = getPlayerNickname(gameState.activeSpeakerId);
       speakerBox.className = "active-speaker-spotlight active";
       speakerNameEl.textContent = activeName;
-      if (gameState.activeSpeakerId === myPeerId) {
+      
+      const isMyTurn = (gameState.activeSpeakerId === myPeerId);
+      const hasRevealed = gameState.speakerHasRevealedThisTurn;
+      const isSpeechPhase = gameState.status.startsWith("discussion") || gameState.status === "defense";
+
+      if (isMyTurn) {
         speakerTipEl.innerHTML = `<span class="neon-text animate-pulse">ВАШ ХОД! Вы говорите в эфире!</span>`;
       } else {
         speakerTipEl.textContent = "Слушайте спикера.";
+      }
+
+      // Show skip button only to the active speaker after they have revealed a card
+      if (speakerSkipBtn) {
+        if (isMyTurn && hasRevealed && isSpeechPhase) {
+          speakerSkipBtn.classList.remove("hidden");
+        } else {
+          speakerSkipBtn.classList.add("hidden");
+        }
       }
     } else {
       speakerBox.className = "active-speaker-spotlight";
       speakerNameEl.textContent = "Общая дискуссия";
       speakerTipEl.textContent = "Свободное общение для всех выживших.";
+      if (speakerSkipBtn) speakerSkipBtn.classList.add("hidden");
     }
 
     // Render general discussion players dossier bar if active (Point 2)
@@ -2055,6 +2076,16 @@ window.toggleRightSidebar = toggleRightSidebar;
 window.toggleApocalypseOverlay = toggleApocalypseOverlay;
 window.switchSidebarTab = switchSidebarTab;
 
+function skipMyTurn() {
+  if (isHost) {
+    nextSpeakerOrPhase();
+  } else {
+    sendToHost({
+      type: "SKIP_TURN"
+    });
+  }
+}
+
 // Bind inline HTML event handlers to window (required for Vite type="module" bundling)
 window.hideNotification = hideNotification;
 window.revealMyCard = revealMyCard;
@@ -2066,3 +2097,4 @@ window.adminRevealAll = adminRevealAll;
 window.adminChangeProfession = adminChangeProfession;
 window.switchControlTab = switchControlTab;
 window.getRoundCardType = getRoundCardType;
+window.skipMyTurn = skipMyTurn;

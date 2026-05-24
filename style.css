@@ -2101,4 +2101,38 @@ body:has(#screen-game.active) .my-3d-deck-wrapper {
   letter-spacing: 1px;
 }
 
+.speaker-skip-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 15px;
+  position: relative;
+  z-index: 10;
+}
+
+#btn-speaker-skip {
+  background: rgba(255, 152, 0, 0.05);
+  border: 1px solid var(--neon-orange);
+  color: var(--neon-orange);
+  box-shadow: 0 0 15px var(--neon-orange-glow);
+  text-transform: uppercase;
+  font-family: var(--font-title);
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 12px 24px;
+  border-radius: 30px;
+  transition: var(--transition-smooth);
+}
+
+#btn-speaker-skip:hover {
+  background: var(--neon-orange);
+  color: #000;
+  box-shadow: 0 0 25px var(--neon-orange);
+  transform: translateY(-2px);
+}
+
+#btn-speaker-skip.hidden {
+  display: none !important;
+}
+
 
