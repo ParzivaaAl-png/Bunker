@@ -350,6 +350,12 @@ function createSpotlightPlaceholder() {
 function update3DDeck(players, myId) {
   if (!deck3D.scene) return;
 
+  // If a card is currently being inspected, DO NOT destroy and rebuild the hand!
+  // This prevents the active inspected card from disappearing during timer sync updates!
+  if (deck3D.inspectedCard !== null) {
+    return;
+  }
+
   // Self-Healing Resize Check: fixes the 0x0 initial canvas rendering bug instantly!
   const deckWrapper = document.querySelector(".my-3d-deck-wrapper");
   if (deckWrapper && (deck3D.width === 0 || deck3D.height === 0 || deck3D.width !== deckWrapper.clientWidth || deck3D.height !== deckWrapper.clientHeight)) {
@@ -376,9 +382,9 @@ function update3DDeck(players, myId) {
 
   const totalCards = cardCategories.length;
   
-  // Curved layout math along an arc: perfectly tailored for the container-free full viewport
-  const arcRadius = 7.0;
-  const angleStep = 0.16; // Elegant distance spacing
+  // Curved layout math along an arc: perfectly tailored for the container-free full viewport to avoid clashing overlap!
+  const arcRadius = 8.5;
+  const angleStep = 0.13; // Elegant horizontal spacing to keep text readable!
 
   cardCategories.forEach((cat, idx) => {
     const val = myPlayer.cards[cat] || "Скрытая характеристика";
@@ -392,8 +398,8 @@ function update3DDeck(players, myId) {
     const frontTex = new THREE.CanvasTexture(frontCanvas);
     const backTex = new THREE.CanvasTexture(backCanvas);
 
-    // Sleekly shrunk physical card size (width = 1.8, height = 2.8, depth = 0.05)
-    const geom = new THREE.BoxGeometry(1.8, 2.8, 0.05);
+    // Highly refined smaller playing card sizes for perfect non-clashing visual representation (width = 1.2, height = 1.9)
+    const geom = new THREE.BoxGeometry(1.2, 1.9, 0.04);
     
     // Materials for 6 faces: Right, Left, Top, Bottom, Front (index 4), Back (index 5)
     const sidesMat = new THREE.MeshStandardMaterial({ color: 0x101424, roughness: 0.8 });
@@ -408,7 +414,7 @@ function update3DDeck(players, myId) {
     // Left to right fanning order along the arc
     const angle = Math.PI / 2 - (idx - (totalCards - 1) / 2) * angleStep;
     const x = Math.cos(angle) * arcRadius;
-    const y = Math.sin(angle) * arcRadius - arcRadius - 2.15; // Anchor fanning beautifully to the bottom edge of full screen
+    const y = Math.sin(angle) * arcRadius - arcRadius - 2.80; // Anchor fanning beautifully to sit aligned with bottom edge of viewport
     const z = 1.2 - Math.abs(idx - (totalCards - 1) / 2) * 0.25; // Arc depth fanning out
 
     mesh.position.set(x, y, z);
@@ -694,12 +700,21 @@ function inspectCard(cardMesh) {
   // Zoom-to-face animations using GSAP
   gsap.killTweensOf(cardMesh.position);
   gsap.killTweensOf(cardMesh.rotation);
+  gsap.killTweensOf(cardMesh.scale);
 
-  // Animate card to beautiful center floating position above bottom controls capsule (Y = 0.6, Z = 5.2 close to camera)
+  // Animate card to beautiful center floating position and scale it up 1.8x to make it huge and crystal clear!
   gsap.to(cardMesh.position, {
     x: 0,
-    y: 0.6,
-    z: 5.2,
+    y: 0.5,
+    z: 5.5, // Perfect distance from camera (Z = 9.0)
+    duration: 0.6,
+    ease: "power3.out"
+  });
+
+  gsap.to(cardMesh.scale, {
+    x: 1.8, // Scale up to 1.8x for absolute text legibility
+    y: 1.8,
+    z: 1.0,
     duration: 0.6,
     ease: "power3.out"
   });
@@ -749,14 +764,23 @@ function closeCardInspection() {
 
   const cardObj = deck3D.cards.find(c => c.mesh === cardMesh);
   if (cardObj) {
-    // Return card mesh smoothly to its default position in fanned arc
+    // Return card mesh smoothly to its default position, rotation, and scale in fanned arc
     gsap.killTweensOf(cardMesh.position);
     gsap.killTweensOf(cardMesh.rotation);
+    gsap.killTweensOf(cardMesh.scale);
 
     gsap.to(cardMesh.position, {
       x: cardObj.defaultPos.x,
       y: cardObj.defaultPos.y,
       z: cardObj.defaultPos.z,
+      duration: 0.6,
+      ease: "power2.out"
+    });
+
+    gsap.to(cardMesh.scale, {
+      x: 1.0, // Restore default 1x scale
+      y: 1.0,
+      z: 1.0,
       duration: 0.6,
       ease: "power2.out"
     });
