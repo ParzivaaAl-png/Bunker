@@ -426,5 +426,59 @@
   <div class="my-3d-deck-wrapper">
     <canvas id="my-3d-deck-canvas"></canvas>
   </div>
+
+  <!-- Epic Introduction Cinema Overlay (Catastrophe & Bunker Presentation) -->
+  <div id="intro-cinema-overlay" class="intro-cinema-overlay hidden">
+    <div class="intro-hazard-tape top">
+      <div class="hazard-stripe-text">EMERGENCY SYSTEM // BUNKER INITIATION COMPLETED // SYSTEM DETECTS SURFACE THREAT // WARNING //</div>
+    </div>
+    
+    <div class="intro-cinema-content">
+      <!-- Catastrophe Card Slide -->
+      <div id="intro-slide-catastrophe" class="intro-slide hidden card-glass">
+        <div class="intro-slide-header text-neon-red">
+          <i class="fa-solid fa-biohazard animate-pulse"></i> ВНИМАНИЕ: КАТАСТРОФА На Поверхности
+        </div>
+        <h2 id="intro-catastrophe-name" class="intro-slide-title">Выбор катастрофы...</h2>
+        <p id="intro-catastrophe-desc" class="intro-slide-text">Идет сканирование атмосферных показателей...</p>
+        <div class="intro-meta-grid">
+          <div class="intro-meta-item"><strong>Климат:</strong> <span id="intro-catastrophe-climate">-</span></div>
+          <div class="intro-meta-item"><strong>Время в убежище:</strong> <span id="intro-catastrophe-time">-</span></div>
+        </div>
+      </div>
+
+      <!-- Bunker Card Slide -->
+      <div id="intro-slide-bunker" class="intro-slide hidden card-glass">
+        <div class="intro-slide-header text-neon-cyan">
+          <i class="fa-solid fa-door-closed animate-pulse"></i> СИСТЕМЫ УБЕЖИЩА Активированы
+        </div>
+        <h2 id="intro-bunker-name" class="intro-slide-title">Убежище №-</h2>
+        <p id="intro-bunker-desc" class="intro-slide-text">Идет проверка жизнеобеспечения...</p>
+      </div>
+
+      <!-- Live Voice Subtitles Indicator -->
+      <div class="intro-voice-indicator">
+        <div class="voice-wave">
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <span id="intro-voice-subtitles">Инициализация голосового процессора бункера...</span>
+      </div>
+
+      <!-- Countdown timer -->
+      <div class="intro-timer-box">
+        <i class="fa-solid fa-hourglass-half"></i> <span id="intro-countdown">30</span>с
+      </div>
+      
+      <!-- Skip intro button (visible to host) -->
+      <button id="btn-skip-intro" class="btn btn-secondary btn-small hidden">
+        <i class="fa-solid fa-forward"></i> Пропустить введение (Хост)
+      </button>
+    </div>
+
+    <div class="intro-hazard-tape bottom">
+      <div class="hazard-stripe-text">EMERGENCY SYSTEM // BUNKER INITIATION COMPLETED // SYSTEM DETECTS SURFACE THREAT // WARNING //</div>
+    </div>
+  </div>
 </body>
 </html>
+

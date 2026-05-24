@@ -404,6 +404,10 @@ function handleHostMessage(msg) {
     syncMeshCalls();
   } else if (msg.type === "TIMER_UPDATE") {
     gameState.activeSpeakerTime = msg.time;
+    const introCountdown = document.getElementById("intro-countdown");
+    if (introCountdown) {
+      introCountdown.textContent = gameState.activeSpeakerTime;
+    }
     // Update timer UI elements directly for ultra-smooth performance and zero overhead!
     const timerBox = document.getElementById("timer-box");
     const timerLabel = document.getElementById("game-timer");
@@ -715,22 +719,22 @@ function startGame() {
     p.vote = null;
   });
 
-  // Configure Phase 1: Round 1 Discussion
-  gameState.status = "discussion_1";
-  gameState.round = 1;
-  gameState.activeSpeakerId = gameState.players[0].id;
-  gameState.activeSpeakerCardType = "profession"; // Starts unrevealed, up to player to open!
-  gameState.activeSpeakerTime = 60; // 1 min
-  gameState.speakerHasRevealedThisTurn = false; // Reset turn reveal flag!
+  // Configure Phase 1: Cinematic Catastrophe Intro Presentation
+  gameState.status = "intro_catastrophe";
+  gameState.round = 0;
+  gameState.activeSpeakerId = "";
+  gameState.activeSpeakerCardType = "";
+  gameState.activeSpeakerTime = 30; // 30 seconds for catastrophe presentation
+  gameState.speakerHasRevealedThisTurn = false;
 
   gameState.logs = [];
-  addLocalLog("СИСТЕМА: Запуск бункера... Игровые карты розданы выжившим.", "system");
-  addLocalLog(`СИСТЕМА: Катастрофа: "${gameState.catastrophe.title}"!`, "system");
-  addLocalLog(`СИСТЕМА: Первым выступает ${gameState.players[0].nickname}.`, "speech");
+  addLocalLog("СИСТЕМА: Запуск убежища... Игровые карты распределены между выжившими.", "system");
+  addLocalLog(`СИСТЕМА: Запуск обзора глобальной угрозы: "${gameState.catastrophe.title}"!`, "system");
 
   broadcastState();
   startTimer();
 }
+
 
 // Helpers for the new sequential Cycle rules (Point 4)
 function getPhaseAfterDiscussion(roundNum) {
@@ -1121,14 +1125,18 @@ function startTimer() {
   gameTimerInterval = setInterval(() => {
     if (!isHost) return;
 
-    if (gameState.status.startsWith("discussion") || gameState.status === "defense" || gameState.status.startsWith("global_discussion") || gameState.status.startsWith("voting")) {
+    if (gameState.status.startsWith("intro") || gameState.status.startsWith("discussion") || gameState.status === "defense" || gameState.status.startsWith("global_discussion") || gameState.status.startsWith("voting")) {
       if (gameState.activeSpeakerTime > 0) {
         gameState.activeSpeakerTime--;
         
         // Broadcast only light timer update instead of heavy full state to avoid network overloading
         broadcastTimer();
       } else {
-        if (gameState.status.startsWith("discussion") || gameState.status === "defense") {
+        if (gameState.status === "intro_catastrophe") {
+          startBunkerIntro();
+        } else if (gameState.status === "intro_bunker") {
+          finishIntroAndStartGame();
+        } else if (gameState.status.startsWith("discussion") || gameState.status === "defense") {
           nextSpeakerOrPhase();
         } else if (gameState.status.startsWith("global_discussion")) {
           // General discussion timer finished! Move to voting
@@ -1158,9 +1166,85 @@ function syncGameUI() {
     document.getElementById("screen-lobby").className = "screen active";
     document.getElementById("screen-game").className = "screen";
     updateLobbyUI();
+    const introOverlay = document.getElementById("intro-cinema-overlay");
+    if (introOverlay) introOverlay.classList.add("hidden");
   } else {
     document.getElementById("screen-lobby").className = "screen";
     document.getElementById("screen-game").className = "screen active";
+    
+    // Intro Cinema Overlay Phase Switcher and Text-to-Speech triggers
+    const skipIntroBtn = document.getElementById("btn-skip-intro");
+    if (skipIntroBtn) {
+      if (isHost && gameState.status.startsWith("intro")) {
+        skipIntroBtn.classList.remove("hidden");
+      } else {
+        skipIntroBtn.classList.add("hidden");
+      }
+    }
+
+    if (gameState.status === "intro_catastrophe" && lastSpokenPhase !== "intro_catastrophe") {
+      lastSpokenPhase = "intro_catastrophe";
+      const introOverlay = document.getElementById("intro-cinema-overlay");
+      if (introOverlay) {
+        introOverlay.style.opacity = "";
+        introOverlay.classList.remove("hidden");
+      }
+      
+      document.getElementById("intro-slide-catastrophe").classList.remove("hidden");
+      document.getElementById("intro-slide-bunker").classList.add("hidden");
+      
+      document.getElementById("intro-catastrophe-name").textContent = gameState.catastrophe.title;
+      document.getElementById("intro-catastrophe-desc").textContent = gameState.catastrophe.description;
+      document.getElementById("intro-catastrophe-climate").textContent = gameState.catastrophe.climate;
+      document.getElementById("intro-catastrophe-time").textContent = gameState.catastrophe.timeInBunker;
+      
+      gsap.fromTo("#intro-slide-catastrophe", { scale: 0.8, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.8, ease: "back.out(1.2)" });
+      
+      const textToSpeak = `Внимание выжившим! Обнаружена глобальная угроза. Катастрофа: ${gameState.catastrophe.title}. ${gameState.catastrophe.description}`;
+      speakText(textToSpeak);
+      animateSubtitles(textToSpeak);
+    } else if (gameState.status === "intro_bunker" && lastSpokenPhase !== "intro_bunker") {
+      lastSpokenPhase = "intro_bunker";
+      const introOverlay = document.getElementById("intro-cinema-overlay");
+      if (introOverlay) {
+        introOverlay.style.opacity = "";
+        introOverlay.classList.remove("hidden");
+      }
+      
+      document.getElementById("intro-slide-catastrophe").classList.add("hidden");
+      document.getElementById("intro-slide-bunker").classList.remove("hidden");
+      
+      document.getElementById("intro-bunker-name").textContent = gameState.bunker.title;
+      document.getElementById("intro-bunker-desc").innerHTML = gameState.bunker.description;
+      
+      gsap.fromTo("#intro-slide-bunker", { scale: 0.8, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.8, ease: "back.out(1.2)" });
+      
+      const textToSpeak = `Голосовой процессор убежища активирован. Системы бункера запущены. Описание: ${gameState.bunker.title}. ${gameState.bunker.description}`;
+      speakText(textToSpeak);
+      animateSubtitles(textToSpeak);
+    } else if (!gameState.status.startsWith("intro") && lastSpokenPhase !== "") {
+      lastSpokenPhase = "";
+      if (window.speechSynthesis) window.speechSynthesis.cancel();
+      
+      const introOverlay = document.getElementById("intro-cinema-overlay");
+      if (introOverlay) {
+        gsap.to(introOverlay, {
+          opacity: 0,
+          duration: 0.8,
+          onComplete: () => {
+            introOverlay.classList.add("hidden");
+            introOverlay.style.opacity = "";
+          }
+        });
+      }
+    }
+
+    // Direct countdown sync for host direct updates
+    const introCountdown = document.getElementById("intro-countdown");
+    if (introCountdown) {
+      introCountdown.textContent = gameState.activeSpeakerTime;
+    }
+
     
     // Toggle spectator warning bar persistent notice
     const myPlayer = gameState.players.find(p => p.id === myPeerId);
@@ -1953,6 +2037,14 @@ function adminChangeProfession(peerId) {
 // -----------------------------------------------------------------------------
 
 function initUIEvents() {
+  // Skip Intro button listener
+  const skipIntroBtn = document.getElementById("btn-skip-intro");
+  if (skipIntroBtn) {
+    skipIntroBtn.addEventListener("click", () => {
+      skipIntroPhase();
+    });
+  }
+
   // Lobby buttons
   document.getElementById("btn-create-room").addEventListener("click", () => {
     const nick = document.getElementById("input-nickname").value.trim();
@@ -2172,7 +2264,83 @@ function addLocalLog(text, type) {
   }
 }
 
+// Variable to block multiple speech synthesis triggers on state changes
+let lastSpokenPhase = "";
+
+function speakText(text) {
+  if (!('speechSynthesis' in window)) return;
+
+  // Cancel any ongoing speech
+  window.speechSynthesis.cancel();
+
+  // Remove bold tags, bullets, or HTML tags for cleaner speech
+  const cleanedText = text
+    .replace(/<br>/g, ". ")
+    .replace(/•/g, "")
+    .replace(/<\/?[^>]+(>|$)/g, "");
+
+  const utterance = new SpeechSynthesisUtterance(cleanedText);
+  utterance.lang = 'ru-RU';
+  
+  // Find a native Russian voice
+  const voices = window.speechSynthesis.getVoices();
+  const ruVoice = voices.find(v => v.lang.startsWith('ru') && v.name.toLowerCase().includes('google')) || 
+                  voices.find(v => v.lang.startsWith('ru'));
+  
+  if (ruVoice) {
+    utterance.voice = ruVoice;
+  }
+
+  // AI synthetic announcer parameters
+  utterance.pitch = 0.95;
+  utterance.rate = 0.92; // Slightly slow and clear reading pace
+  utterance.volume = 0.95;
+
+  window.speechSynthesis.speak(utterance);
+}
+
+function animateSubtitles(text) {
+  const subEl = document.getElementById("intro-voice-subtitles");
+  if (!subEl) return;
+  subEl.textContent = text;
+}
+
+function startBunkerIntro() {
+  if (!isHost) return;
+  gameState.status = "intro_bunker";
+  gameState.activeSpeakerTime = 30; // 30 seconds
+  broadcastState();
+  startTimer();
+}
+
+function finishIntroAndStartGame() {
+  if (!isHost) return;
+  gameState.status = "discussion_1";
+  gameState.round = 1;
+  gameState.activeSpeakerId = gameState.players[0].id;
+  gameState.activeSpeakerCardType = "profession";
+  gameState.activeSpeakerTime = 60; // 60 seconds
+  gameState.speakerHasRevealedThisTurn = false;
+  
+  addLocalLog(`СИСТЕМА: Обзор систем убежища завершен. Раунд 1 начат!`, "system");
+  broadcastState();
+  startTimer();
+}
+
+function skipIntroPhase() {
+  if (!isHost) return;
+  if (gameState.status === "intro_catastrophe") {
+    startBunkerIntro();
+  } else if (gameState.status === "intro_bunker") {
+    finishIntroAndStartGame();
+  }
+}
+
+// Bind to window for direct calls
+window.skipIntroPhase = skipIntroPhase;
+
 // Notification Banner
+
 function showNotification(text) {
   const banner = document.getElementById("notification-banner");
   banner.querySelector(".notification-text").textContent = text;

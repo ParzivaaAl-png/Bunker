@@ -2441,14 +2441,187 @@ body:has(#screen-game.active) .my-3d-deck-wrapper {
   text-align: center;
 }
 
-.warning-bar-content i {
-  color: var(--neon-red);
-  font-size: 1.15rem;
+/* =============================================================================
+   11. EPIC INTRODUCTION CINEMA OVERLAY
+   ============================================================================= */
+.intro-cinema-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: radial-gradient(circle at center, rgba(10, 14, 25, 0.98) 0%, rgba(2, 3, 6, 0.99) 100%);
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  overflow: hidden;
+  transition: opacity 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.intro-cinema-overlay.hidden {
+  display: none !important;
+}
+
+.intro-hazard-tape {
+  width: 100%;
+  height: 45px;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--neon-orange),
+    var(--neon-orange) 20px,
+    #000 20px,
+    #000 40px
+  );
+  border-top: 2px solid var(--neon-orange);
+  border-bottom: 2px solid var(--neon-orange);
+  box-shadow: 0 0 25px rgba(255, 152, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  z-index: 10;
+}
+
+.intro-cinema-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  width: 100%;
+  max-width: 800px;
+  padding: 20px;
+  box-sizing: border-box;
+  z-index: 5;
+  gap: 25px;
+}
+
+.intro-slide {
+  width: 100%;
+  max-width: 550px;
+  padding: 35px 30px;
+  border-radius: 16px;
+  border: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  text-align: center;
+  box-shadow: 0 10px 50px rgba(0, 0, 0, 0.6);
+}
+
+.intro-slide.hidden {
+  display: none !important;
+}
+
+.intro-slide-header {
+  font-family: var(--font-title);
+  font-size: 0.9rem;
+  font-weight: bold;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.intro-slide-title {
+  font-family: var(--font-title);
+  font-size: 2.2rem;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+}
+
+.intro-slide-text {
+  font-size: 1.1rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.intro-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+  gap: 15px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+  padding-top: 15px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.intro-meta-item strong {
+  color: var(--text-primary);
+}
+
+/* Audio wave / subtitles */
+.intro-voice-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 600px;
+}
+
+.voice-wave {
+  display: flex;
+  align-items: flex-end;
+  height: 20px;
+  gap: 4px;
+}
+
+.voice-wave span {
+  width: 3px;
+  height: 5px;
+  background-color: var(--neon-cyan);
+  border-radius: 3px;
+  animation: wavePulse 1.2s ease-in-out infinite alternate;
+}
+
+.voice-wave span:nth-child(2) { animation-delay: 0.2s; height: 10px; }
+.voice-wave span:nth-child(3) { animation-delay: 0.4s; height: 18px; }
+.voice-wave span:nth-child(4) { animation-delay: 0.1s; height: 12px; }
+.voice-wave span:nth-child(5) { animation-delay: 0.3s; height: 6px; }
+
+@keyframes wavePulse {
+  0% { transform: scaleY(1); }
+  100% { transform: scaleY(2.2); }
+}
+
+#intro-voice-subtitles {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: center;
+  font-style: italic;
+  max-width: 90%;
+  min-height: 38px;
+  line-height: 1.4;
+  transition: opacity 0.3s ease;
+}
+
+/* Timer box */
+.intro-timer-box {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-light);
+  padding: 8px 20px;
+  border-radius: 30px;
+  font-family: var(--font-title);
+  font-size: 1.2rem;
+  color: var(--neon-cyan);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#btn-skip-intro {
+  margin-top: 10px;
 }
 
 /* =============================================================================
    MOBILE RESPONSIVENESS (MAX-WIDTH: 600PX)
    ============================================================================= */
+
 @media (max-width: 600px) {
   .game-layout {
     padding: 8px !important;
@@ -2785,7 +2958,37 @@ body:has(#screen-game.active) .my-3d-deck-wrapper {
   .biohazard-logo-bg {
     font-size: 20rem !important;
   }
+
+  /* 11. Epic Introduction Cinema Mobile Adaptation */
+  .intro-slide {
+    width: 90% !important;
+    padding: 25px 20px !important;
+    gap: 15px !important;
+  }
+  .intro-slide-title {
+    font-size: 1.6rem !important;
+  }
+  .intro-slide-text {
+    font-size: 0.92rem !important;
+    line-height: 1.4 !important;
+  }
+  .intro-meta-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+    font-size: 0.82rem !important;
+  }
+  #intro-voice-subtitles {
+    font-size: 0.78rem !important;
+  }
+  .intro-hazard-tape {
+    height: 35px !important;
+  }
+  .intro-hazard-tape .hazard-stripe-text {
+    font-size: 0.72rem !important;
+    letter-spacing: 2px !important;
+  }
 }
+
 
 
 
