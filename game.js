@@ -44,6 +44,14 @@ window.addEventListener("DOMContentLoaded", () => {
   if (window.init3D) {
     window.init3D();
   }
+
+  // Preload speech synthesis voices so they are ready when the game starts
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.getVoices();
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+    }
+  }
 });
 
 // Check if room code is in the URL hash (e.g. #A7B8)
@@ -724,7 +732,7 @@ function startGame() {
   gameState.round = 0;
   gameState.activeSpeakerId = "";
   gameState.activeSpeakerCardType = "";
-  gameState.activeSpeakerTime = 30; // 30 seconds for catastrophe presentation
+  gameState.activeSpeakerTime = 120; // Safety net max: speech onend will advance earlier
   gameState.speakerHasRevealedThisTurn = false;
 
   gameState.logs = [];
@@ -1201,7 +1209,12 @@ function syncGameUI() {
       gsap.fromTo("#intro-slide-catastrophe", { scale: 0.8, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.8, ease: "back.out(1.2)" });
       
       const textToSpeak = `Внимание выжившим! Обнаружена глобальная угроза. Катастрофа: ${gameState.catastrophe.title}. ${gameState.catastrophe.description}`;
-      speakText(textToSpeak);
+      speakText(textToSpeak, () => {
+        // Speech finished — advance to bunker intro after a dramatic pause
+        if (isHost && gameState.status === "intro_catastrophe") {
+          setTimeout(() => startBunkerIntro(), 1500);
+        }
+      });
       animateSubtitles(textToSpeak);
     } else if (gameState.status === "intro_bunker" && lastSpokenPhase !== "intro_bunker") {
       lastSpokenPhase = "intro_bunker";
@@ -1220,7 +1233,12 @@ function syncGameUI() {
       gsap.fromTo("#intro-slide-bunker", { scale: 0.8, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.8, ease: "back.out(1.2)" });
       
       const textToSpeak = `Голосовой процессор убежища активирован. Системы бункера запущены. Описание: ${gameState.bunker.title}. ${gameState.bunker.description}`;
-      speakText(textToSpeak);
+      speakText(textToSpeak, () => {
+        // Speech finished — start the actual game after a dramatic pause
+        if (isHost && gameState.status === "intro_bunker") {
+          setTimeout(() => finishIntroAndStartGame(), 1500);
+        }
+      });
       animateSubtitles(textToSpeak);
     } else if (!gameState.status.startsWith("intro") && lastSpokenPhase !== "") {
       lastSpokenPhase = "";
@@ -2267,11 +2285,18 @@ function addLocalLog(text, type) {
 // Variable to block multiple speech synthesis triggers on state changes
 let lastSpokenPhase = "";
 
-function speakText(text) {
-  if (!('speechSynthesis' in window)) return;
+// Chrome speechSynthesis bug workaround: periodic resume to prevent stalling on long texts
+let speechResumeInterval = null;
 
-  // Cancel any ongoing speech
+function speakText(text, onEndCallback) {
+  if (!('speechSynthesis' in window)) {
+    if (onEndCallback) setTimeout(onEndCallback, 500);
+    return;
+  }
+
+  // Cancel any ongoing speech and clear previous resume interval
   window.speechSynthesis.cancel();
+  clearInterval(speechResumeInterval);
 
   // Remove bold tags, bullets, or HTML tags for cleaner speech
   const cleanedText = text
@@ -2282,21 +2307,49 @@ function speakText(text) {
   const utterance = new SpeechSynthesisUtterance(cleanedText);
   utterance.lang = 'ru-RU';
   
-  // Find a native Russian voice
+  // Find the best available Russian voice (prefer neural/online for natural lively sound)
   const voices = window.speechSynthesis.getVoices();
-  const ruVoice = voices.find(v => v.lang.startsWith('ru') && v.name.toLowerCase().includes('google')) || 
-                  voices.find(v => v.lang.startsWith('ru'));
+  const ruVoices = voices.filter(v => v.lang.startsWith('ru'));
   
-  if (ruVoice) {
-    utterance.voice = ruVoice;
+  // Priority: Neural/Online premium voices > Google > Microsoft > any Russian
+  const bestVoice = ruVoices.find(v => /neural|online|premium/i.test(v.name)) ||
+                    ruVoices.find(v => /google/i.test(v.name)) ||
+                    ruVoices.find(v => /microsoft/i.test(v.name)) ||
+                    ruVoices[0];
+  
+  if (bestVoice) {
+    utterance.voice = bestVoice;
+    console.log("TTS Voice selected:", bestVoice.name);
   }
 
-  // AI synthetic announcer parameters
-  utterance.pitch = 0.95;
-  utterance.rate = 0.92; // Slightly slow and clear reading pace
-  utterance.volume = 0.95;
+  // Lively announcer parameters (slightly faster and brighter for natural feel)
+  utterance.pitch = 1.05;
+  utterance.rate = 0.95;
+  utterance.volume = 1.0;
+
+  // Fire callback when speech finishes (or on error)
+  let callbackFired = false;
+  const fireCallback = () => {
+    if (callbackFired) return;
+    callbackFired = true;
+    clearInterval(speechResumeInterval);
+    if (onEndCallback) onEndCallback();
+  };
+
+  utterance.onend = fireCallback;
+  utterance.onerror = fireCallback;
 
   window.speechSynthesis.speak(utterance);
+
+  // Chrome bug workaround: speechSynthesis silently pauses after ~15 seconds on long texts.
+  // Periodically call resume() to keep it alive.
+  speechResumeInterval = setInterval(() => {
+    if (window.speechSynthesis.speaking) {
+      window.speechSynthesis.resume();
+    } else {
+      clearInterval(speechResumeInterval);
+    }
+  }, 5000);
 }
 
 function animateSubtitles(text) {
@@ -2308,7 +2361,7 @@ function animateSubtitles(text) {
 function startBunkerIntro() {
   if (!isHost) return;
   gameState.status = "intro_bunker";
-  gameState.activeSpeakerTime = 30; // 30 seconds
+  gameState.activeSpeakerTime = 120; // Safety net max: speech onend will advance earlier
   broadcastState();
   startTimer();
 }
