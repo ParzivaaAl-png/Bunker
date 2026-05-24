@@ -44,7 +44,7 @@ const CATEGORY_INFO = {
 // 1. DYNAMIC CANVAS TEXTURE CREATOR
 // -----------------------------------------------------------------------------
 
-function drawCardFace(category, text, revealed, color, isRevealedToAll) {
+function drawCardFace(category, text, revealed, color, isRevealedToAll, isDimmed = false) {
   const canvas = document.createElement("canvas");
   canvas.width = 512;
   canvas.height = 768;
@@ -202,6 +202,27 @@ function drawCardFace(category, text, revealed, color, isRevealedToAll) {
     ctx.font = "bold 20px 'Orbitron', sans-serif";
     ctx.fillStyle = color;
     ctx.fillText("RESTRICTED DATA", 256, 540);
+  }
+
+  if (isDimmed) {
+    ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
+    ctx.shadowBlur = 0; // Disable shadows for overlay
+    ctx.fillRect(0, 0, 512, 768);
+    
+    // Draw warning stamp border
+    ctx.strokeStyle = "rgba(244, 67, 54, 0.85)";
+    ctx.lineWidth = 10;
+    ctx.strokeRect(40, 40, 432, 688);
+    
+    ctx.strokeStyle = "rgba(244, 67, 54, 0.5)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(52, 52, 408, 664);
+    
+    // Stamp Text
+    ctx.font = "bold 58px 'Orbitron', 'Inter', sans-serif";
+    ctx.fillStyle = "rgba(244, 67, 54, 0.95)";
+    ctx.textAlign = "center";
+    ctx.fillText("ИЗГНАН", 256, 384);
   }
 
   return canvas;
@@ -441,6 +462,8 @@ function update3DDeck(players, myId) {
     const mesh = cardObj.mesh;
     gsap.killTweensOf(mesh.position);
     gsap.killTweensOf(mesh.rotation);
+    
+    mesh.userData.animating = true; // Mark as animating to prevent hover overlaps
 
     if (wasDossierActive) {
       // Dossier cards slide out to the left off-screen beautifully!
@@ -514,23 +537,27 @@ function update3DDeck(players, myId) {
         mesh.position.set(-12.0, targetY, targetZ);
         mesh.rotation.set(-0.1, 0, 0); // slight back tilt
         
-        gsap.to(mesh.position, {
-          x: targetX,
-          duration: 0.8,
-          delay: idx * 0.1,
-          ease: "power3.out"
-        });
-        
-        const defaultPos = new THREE.Vector3(targetX, targetY, targetZ);
-        const defaultRot = mesh.rotation.clone();
-        
         mesh.userData = {
           category: cat,
           text: val,
           isRevealed: true,
           color: color,
-          index: idx
+          index: idx,
+          animating: true // Start as true to prevent hover stickiness
         };
+
+        gsap.to(mesh.position, {
+          x: targetX,
+          duration: 0.8,
+          delay: idx * 0.1,
+          ease: "power3.out",
+          onComplete: () => {
+            mesh.userData.animating = false; // Hover active when entry completes
+          }
+        });
+        
+        const defaultPos = new THREE.Vector3(targetX, targetY, targetZ);
+        const defaultRot = mesh.rotation.clone();
         
         deck3D.scene.add(mesh);
         
@@ -557,10 +584,12 @@ function update3DDeck(players, myId) {
       const val = myPlayer.cards[cat] || "Скрытая характеристика";
       const isRev = myPlayer.revealed[cat] || false;
       const color = CATEGORY_INFO[cat]?.color || "#ffffff";
+      
+      const isDimmed = (myPlayer.isAlive === false);
 
       // Create Canvas textures (passing reveal status to display public outline/lock badges)
-      const frontCanvas = drawCardFace(cat, val, true, color, isRev);
-      const backCanvas = drawCardFace(cat, val, false, color, isRev);
+      const frontCanvas = drawCardFace(cat, val, true, color, isRev, isDimmed);
+      const backCanvas = drawCardFace(cat, val, false, color, isRev, isDimmed);
 
       const frontTex = new THREE.CanvasTexture(frontCanvas);
       const backTex = new THREE.CanvasTexture(backCanvas);
@@ -747,6 +776,17 @@ function update3DSpotlight(activeSpeakerId, players, currentRound, activeSpeaker
 function onDeckMouseMove(event) {
   if (!deck3D.scene || deck3D.inspectedCard) return;
 
+  // 1. Inactive check for expelled/spectator players
+  const myPlayer = window.gameState ? window.gameState.players.find(p => p.id === window.myPeerId) : null;
+  if (myPlayer && !myPlayer.isAlive) {
+    if (deck3D.hoveredCard) {
+      resetCardHover(deck3D.hoveredCard);
+      deck3D.hoveredCard = null;
+      document.body.style.cursor = "default";
+    }
+    return;
+  }
+
   // Only process if the game screen is active and no modal/overlay is open
   const gameScreen = document.getElementById("screen-game");
   if (!gameScreen || !gameScreen.classList.contains("active")) return;
@@ -764,6 +804,16 @@ function onDeckMouseMove(event) {
 
   if (intersects.length > 0) {
     let topMesh = intersects[0].object;
+    
+    // 2. Block hover if the target card is currently playing an animation
+    if (topMesh.userData.animating) {
+      if (deck3D.hoveredCard) {
+        resetCardHover(deck3D.hoveredCard);
+        deck3D.hoveredCard = null;
+        document.body.style.cursor = "default";
+      }
+      return;
+    }
     
     if (deck3D.hoveredCard !== topMesh) {
       // Reset previous hovered card
@@ -836,6 +886,10 @@ function onDeckMouseClick(event) {
   const apocalypseOverlay = document.getElementById("apocalypse-overlay");
   if (apocalypseOverlay && !apocalypseOverlay.classList.contains("hidden")) return;
 
+  // 1. Inactive check for expelled/spectator players
+  const myPlayer = window.gameState ? window.gameState.players.find(p => p.id === window.myPeerId) : null;
+  if (myPlayer && !myPlayer.isAlive) return;
+
   // Ignore clicks on UI elements like buttons, sidebars, capsule bars
   if (event.target.closest("button") || event.target.closest(".inspected-card-actions") || event.target.closest(".floating-voice-controls") || event.target.closest(".sidebar")) {
     return;
@@ -853,6 +907,8 @@ function onDeckMouseClick(event) {
     if (intersects.length > 0 && intersects[0].object === deck3D.inspectedCard) {
       return; // Clicking directly on the zoomed card mesh does nothing
     }
+    // Block closing if the card is currently returning or animating
+    if (deck3D.inspectedCard.userData.animating) return;
     closeCardInspection();
     return;
   }
@@ -863,6 +919,8 @@ function onDeckMouseClick(event) {
 
   if (intersects.length > 0) {
     const clickedMesh = intersects[0].object;
+    // 2. Block click if target card is playing fly-in or slide-down animation
+    if (clickedMesh.userData.animating) return;
     inspectCard(clickedMesh);
   }
 }
@@ -982,12 +1040,17 @@ function closeCardInspection() {
     gsap.killTweensOf(cardMesh.rotation);
     gsap.killTweensOf(cardMesh.scale);
 
+    cardMesh.userData.animating = true; // Block pointer stickiness while returning
+
     gsap.to(cardMesh.position, {
       x: cardObj.defaultPos.x,
       y: cardObj.defaultPos.y,
       z: cardObj.defaultPos.z,
       duration: 0.6,
-      ease: "power2.out"
+      ease: "power2.out",
+      onComplete: () => {
+        cardMesh.userData.animating = false; // Restore hover controls when returned!
+      }
     });
 
     gsap.to(cardMesh.scale, {

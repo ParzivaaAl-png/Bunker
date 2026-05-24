@@ -1804,10 +1804,8 @@ body:has(#screen-game.active) .my-3d-deck-wrapper {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(3, 5, 10, 0.45); /* Very light overlay for transparency */
-  backdrop-filter: blur(3px); /* Subtle background blur */
-  -webkit-backdrop-filter: blur(3px);
-  z-index: 600;
+  background: rgba(2, 4, 8, 0.75); /* Deep dark overlay contrast to pop the 3D card */
+  z-index: 800; /* Float above fanned 3D canvas wrapper (700) so actions buttons are on top */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2375,6 +2373,45 @@ body:has(#screen-game.active) .my-3d-deck-wrapper {
   0% { transform: scale(0.96); opacity: 0.75; color: #ff5252; }
   100% { transform: scale(1.04); opacity: 1; color: #ffffff; }
 }
+
+/* Spectator Persistent Warning Bar */
+.spectator-warning-bar {
+  width: 100%;
+  background: rgba(244, 67, 54, 0.15);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 2px solid var(--neon-red);
+  box-shadow: 0 4px 20px rgba(244, 67, 54, 0.2);
+  padding: 10px 20px;
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.spectator-warning-bar.hidden {
+  display: none !important;
+}
+
+.warning-bar-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: 'Orbitron', 'Inter', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 0 8px var(--neon-red);
+  text-align: center;
+}
+
+.warning-bar-content i {
+  color: var(--neon-red);
+  font-size: 1.15rem;
+}
+
 
 
 

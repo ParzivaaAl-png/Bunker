@@ -870,6 +870,9 @@ function startVotingPhase(votingNum) {
 function finishVoting() {
   if (!isHost) return;
 
+  // Stop voting timer immediately to prevent duplicate runs during expulsion animation
+  clearInterval(gameTimerInterval);
+
   // Calculate vote tallies
   const voteTallies = {}; // nomineeId -> count
   gameState.players.forEach(p => {
@@ -899,8 +902,13 @@ function finishVoting() {
   if (nominees.length === 0) {
     addLocalLog("СИСТЕМА: Голоса не отданы или все цели имеют иммунитет. Изгнание отменено.", "system");
     advanceAfterExpulsion();
+  } else if (nominees.length === 1) {
+    // Absolute majority - KICK IMMEDIATELY WITHOUT DEFENSE!
+    const target = nominees[0];
+    addLocalLog(`СИСТЕМА: Большинство проголосовало против ${getPlayerNickname(target)} (${voteTallies[target]} голосов). Изгнание без оправдания!`, "system");
+    expelPlayer(target);
   } else {
-    // Trigger defense round
+    // Tie - nominate candidates and trigger defense round
     gameState.status = "defense";
     gameState.nominees = nominees;
     gameState.defenseIdx = 0;
@@ -910,8 +918,9 @@ function finishVoting() {
     gameState.activeSpeakerTime = 20;
     gameState.speakerHasRevealedThisTurn = false; // Reset turn reveal flag!
 
-    addLocalLog(`СИСТЕМА: Номинанты на изгнание: ${nominees.map(id => getPlayerNickname(id)).join(", ")}. Каждому дается 20 сек. на оправдание.`, "system");
+    addLocalLog(`СИСТЕМА: Ничья по голосам! Номинанты на изгнание: ${nominees.map(id => getPlayerNickname(id)).join(", ")}. Каждому дается 20 сек. на оправдание.`, "system");
     addLocalLog(`Оправдывается ${activeDef.nickname}.`, "speech");
+    startTimer(); // Restart timer for defense speeches!
     broadcastState();
   }
 }
@@ -919,7 +928,8 @@ function finishVoting() {
 function finishFinalVoting() {
   if (!isHost) return;
 
-  // Final voting determines who is kicked
+  // Stop final voting timer immediately to prevent duplicate runs during expulsion animation
+  clearInterval(gameTimerInterval);
   const voteTallies = {};
   gameState.players.forEach(p => {
     if (p.isAlive && p.vote && gameState.nominees.includes(p.vote)) {
@@ -1051,6 +1061,7 @@ function advanceAfterExpulsion() {
       gameState.speakerHasRevealedThisTurn = false; // Reset turn reveal flag!
 
       addLocalLog(`СИСТЕМА: Начат Круг ${nextRound}. Раскройте следующую карту (30 сек).`, "system");
+      startTimer();
     }
   }
 
@@ -1128,6 +1139,17 @@ function syncGameUI() {
   } else {
     document.getElementById("screen-lobby").className = "screen";
     document.getElementById("screen-game").className = "screen active";
+    
+    // Toggle spectator warning bar persistent notice
+    const myPlayer = gameState.players.find(p => p.id === myPeerId);
+    const specBar = document.getElementById("spectator-warning-bar");
+    if (specBar) {
+      if (myPlayer && !myPlayer.isAlive) {
+        specBar.classList.remove("hidden");
+      } else {
+        specBar.classList.add("hidden");
+      }
+    }
     
     // Auto-trigger window resize reflow to ensure 3D card canvases are sized correctly immediately
     requestAnimationFrame(() => {
