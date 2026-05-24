@@ -433,14 +433,50 @@ function update3DDeck(players, myId) {
 
   const cardCategories = ["profession", "health", "biology", "hobby", "phobia", "baggage", "addInfo", "quality"];
   
-  // Clear old meshes
+  // Clear old meshes with beautiful slide-out transitions!
+  const lastStateObj = deck3D.lastDeckStateStr ? JSON.parse(deck3D.lastDeckStateStr) : null;
+  const wasDossierActive = lastStateObj && lastStateObj.isGlobalDisc && lastStateObj.selPlayerId !== "";
+
   deck3D.cards.forEach(cardObj => {
-    deck3D.scene.remove(cardObj.mesh);
-    cardObj.mesh.geometry.dispose();
-    cardObj.mesh.material.forEach(mat => {
-      if (mat.map) mat.map.dispose();
-      mat.dispose();
-    });
+    const mesh = cardObj.mesh;
+    gsap.killTweensOf(mesh.position);
+    gsap.killTweensOf(mesh.rotation);
+
+    if (wasDossierActive) {
+      // Dossier cards slide out to the left off-screen beautifully!
+      gsap.to(mesh.position, {
+        x: -12.0,
+        duration: 0.6,
+        ease: "power3.in",
+        onComplete: () => {
+          deck3D.scene.remove(mesh);
+          if (mesh.geometry) mesh.geometry.dispose();
+          if (mesh.material) {
+            mesh.material.forEach(mat => {
+              if (mat.map) mat.map.dispose();
+              mat.dispose();
+            });
+          }
+        }
+      });
+    } else {
+      // Local fanned hand cards slide down out of view smoothly!
+      gsap.to(mesh.position, {
+        y: -6.0,
+        duration: 0.5,
+        ease: "power2.in",
+        onComplete: () => {
+          deck3D.scene.remove(mesh);
+          if (mesh.geometry) mesh.geometry.dispose();
+          if (mesh.material) {
+            mesh.material.forEach(mat => {
+              if (mat.map) mat.map.dispose();
+              mat.dispose();
+            });
+          }
+        }
+      });
+    }
   });
   deck3D.cards = [];
 
