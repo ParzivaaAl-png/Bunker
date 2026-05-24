@@ -239,7 +239,7 @@ function init3D() {
 
     // Camera setup
     deck3D.camera = new THREE.PerspectiveCamera(40, deck3D.width / deck3D.height, 0.1, 100);
-    deck3D.camera.position.set(0, 0, 10);
+    deck3D.camera.position.set(0, -0.2, 8.5); // Shifted slightly down and closer to enlarge cards
 
     // Lighting
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
@@ -357,52 +357,47 @@ function update3DDeck(players, myId) {
 
   const totalCards = cardCategories.length;
   
-  // Curved layout math along an arc
-  const arcRadius = 16.0;
-  const startAngle = Math.PI / 2 + 0.38; // Center top with offset
-  const angleStep = 0.11; // Distance between cards
+    // Curved layout math along an arc
+    const arcRadius = 9.0;
+    const angleStep = 0.14; // Distance between cards
 
-  cardCategories.forEach((cat, idx) => {
-    const val = myPlayer.cards[cat] || "Скрытая характеристика";
-    const isRev = myPlayer.revealed[cat] || false;
-    const color = CATEGORY_INFO[cat]?.color || "#ffffff";
+    cardCategories.forEach((cat, idx) => {
+      const val = myPlayer.cards[cat] || "Скрытая характеристика";
+      const isRev = myPlayer.revealed[cat] || false;
+      const color = CATEGORY_INFO[cat]?.color || "#ffffff";
 
-    // Create Canvas textures
-    // Note: We create dynamic crisp front textures.
-    // For local player, they can inspect all of them, so the FRONT is always visible during inspect.
-    // However, in the deck list, let's show cards that are NOT revealed as slightly darkened
-    // or with lock icon. But wait, local player knows their cards, so let's draw the content!
-    const frontCanvas = drawCardFace(cat, val, true, color);
-    const backCanvas = drawCardFace(cat, val, false, color);
+      // Create Canvas textures
+      const frontCanvas = drawCardFace(cat, val, true, color);
+      const backCanvas = drawCardFace(cat, val, false, color);
 
-    const frontTex = new THREE.CanvasTexture(frontCanvas);
-    const backTex = new THREE.CanvasTexture(backCanvas);
+      const frontTex = new THREE.CanvasTexture(frontCanvas);
+      const backTex = new THREE.CanvasTexture(backCanvas);
 
-    // Box Geometry representation for a clean 3D look with sides
-    const geom = new THREE.BoxGeometry(2.1, 3.2, 0.04);
-    
-    // Materials for 6 faces: Right, Left, Top, Bottom, Front (index 4), Back (index 5)
-    const sidesMat = new THREE.MeshPhongMaterial({ color: 0x101424, roughness: 0.8 });
-    const materials = [
-      sidesMat, sidesMat, sidesMat, sidesMat,
-      new THREE.MeshPhongMaterial({ map: frontTex, transparent: true }), // Front Face
-      new THREE.MeshPhongMaterial({ map: backTex, transparent: true })  // Back Face
-    ];
+      // Slightly larger Box Geometry representation (width = 2.3, height = 3.5)
+      const geom = new THREE.BoxGeometry(2.3, 3.5, 0.05);
+      
+      // Materials for 6 faces: Right, Left, Top, Bottom, Front (index 4), Back (index 5)
+      const sidesMat = new THREE.MeshPhongMaterial({ color: 0x101424, roughness: 0.8 });
+      const materials = [
+        sidesMat, sidesMat, sidesMat, sidesMat,
+        new THREE.MeshPhongMaterial({ map: frontTex, transparent: true }), // Front Face
+        new THREE.MeshPhongMaterial({ map: backTex, transparent: true })  // Back Face
+      ];
 
-    const mesh = new THREE.Mesh(geom, materials);
-    
-    // Position on a bottom circle arc to fan out!
-    const angle = startAngle - (idx - (totalCards - 1) / 2) * angleStep;
-    const x = Math.cos(angle) * arcRadius;
-    const y = Math.sin(angle) * arcRadius - arcRadius + 1.2; // Shifted up slightly
-    const z = 2.0 - Math.abs(idx - (totalCards - 1) / 2) * 0.4; // Arc depth closer in center
+      const mesh = new THREE.Mesh(geom, materials);
+      
+      // Left to right fanning order along the arc
+      const angle = Math.PI / 2 - (idx - (totalCards - 1) / 2) * angleStep;
+      const x = Math.cos(angle) * arcRadius;
+      const y = Math.sin(angle) * arcRadius - arcRadius + 0.6; // Perfect vertical centering
+      const z = 1.0 - Math.abs(idx - (totalCards - 1) / 2) * 0.2; // Arc depth
 
-    mesh.position.set(x, y, z);
-    
-    // Tilting cards to face the center/camera along the arc
-    mesh.rotation.y = (idx - (totalCards - 1) / 2) * -0.15;
-    mesh.rotation.x = -0.2; // Slight tilt backwards
-    mesh.rotation.z = (idx - (totalCards - 1) / 2) * -0.06; // Curved arc rotation
+      mesh.position.set(x, y, z);
+      
+      // Tilting cards to face the center/camera along the arc
+      mesh.rotation.y = (angle - Math.PI / 2) * -0.2;
+      mesh.rotation.x = -0.1; // Elegant slight tilt backwards
+      mesh.rotation.z = angle - Math.PI / 2; // Perfect curve/arc rotation
 
     // Save defaults
     const defaultPos = mesh.position.clone();
@@ -474,10 +469,17 @@ function update3DSpotlight(activeSpeakerId, players, currentRound) {
     spotlight3D.scene.remove(spotlight3D.cardMesh);
     if (spotlight3D.cardMesh.geometry) {
       spotlight3D.cardMesh.geometry.dispose();
-      spotlight3D.cardMesh.material.forEach(mat => {
-        if (mat.map) mat.map.dispose();
-        mat.dispose();
-      });
+    }
+    if (spotlight3D.cardMesh.material) {
+      if (Array.isArray(spotlight3D.cardMesh.material)) {
+        spotlight3D.cardMesh.material.forEach(mat => {
+          if (mat.map) mat.map.dispose();
+          mat.dispose();
+        });
+      } else {
+        if (spotlight3D.cardMesh.material.map) spotlight3D.cardMesh.material.map.dispose();
+        spotlight3D.cardMesh.material.dispose();
+      }
     }
   }
 
