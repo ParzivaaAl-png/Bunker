@@ -300,6 +300,12 @@ function handleClientMessage(clientPeerId, msg, conn) {
 
     addLocalLog(`Игрок ${msg.nickname} присоединился к лобби.`, "system");
     
+    // Send logs history to the newly connected player
+    conn.send({
+      type: "LOG_HISTORY",
+      logs: gameState.logs
+    });
+    
     // Broadcast updated state and player list to trigger mesh audio calling
     broadcastState();
     updateLobbyUI();
@@ -357,7 +363,11 @@ function handleClientMessage(clientPeerId, msg, conn) {
 // CLIENT receives from HOST
 function handleHostMessage(msg) {
   if (msg.type === "STATE_UPDATE") {
+    const localLogs = gameState.logs || [];
     gameState = msg.state;
+    if (!gameState.logs) {
+      gameState.logs = localLogs;
+    }
     syncGameUI();
     manageVoiceMuteState();
     syncMeshCalls();
@@ -372,6 +382,16 @@ function handleHostMessage(msg) {
       const s = (gameState.activeSpeakerTime % 60).toString().padStart(2, '0');
       timerLabel.textContent = `${m}:${s}`;
     }
+  } else if (msg.type === "ADD_LOG") {
+    if (!gameState.logs) gameState.logs = [];
+    gameState.logs.push(msg.log);
+    if (gameState.logs.length > 100) {
+      gameState.logs.shift();
+    }
+    renderLogs();
+  } else if (msg.type === "LOG_HISTORY") {
+    gameState.logs = msg.logs;
+    renderLogs();
   } else if (msg.type === "ERROR") {
     showNotification("Ошибка: " + msg.message);
     resetConnection();
@@ -435,6 +455,7 @@ function sendToHost(data) {
 // Hiding private info in broadcast
 function sanitizeStateForPlayer(state, playerPeerId) {
   const sanitized = JSON.parse(JSON.stringify(state)); // deep clone
+  delete sanitized.logs; // Crucial performance fix: exclude logs from heavy syncs to prevent BinaryPack buffer crashes!
   sanitized.players.forEach(p => {
     // Hide details for OTHER players if they are not revealed
     if (p.id !== playerPeerId) {
@@ -540,8 +561,8 @@ function manageVoiceMuteState() {
 
   let shouldBeUnmuted = false;
 
-  if (gameState.status === "lobby" || gameState.status === "game_over") {
-    shouldBeUnmuted = true; // Everyone can talk in lobby and final reveal
+  if (gameState.status === "lobby" || gameState.status === "game_over" || gameState.status.startsWith("global_discussion")) {
+    shouldBeUnmuted = true; // Everyone can talk in lobby, final reveal, and global discussion!
   } else if (!myPlayer.isAlive) {
     shouldBeUnmuted = false; // Expelled players are permanently muted during gameplay
   } else if (gameState.status.startsWith("voting") || gameState.status === "defense") {
@@ -1937,6 +1958,19 @@ function getFormattedTime() {
   return `${h}:${m}:${s}`;
 }
 
+function broadcastLog(log) {
+  if (!isHost) return;
+  for (const pid in clientConns) {
+    const conn = clientConns[pid];
+    if (conn && conn.open) {
+      conn.send({
+        type: "ADD_LOG",
+        log: log
+      });
+    }
+  }
+}
+
 function addLocalLog(text, type) {
   const log = {
     time: getFormattedTime(),
@@ -1946,6 +1980,10 @@ function addLocalLog(text, type) {
   gameState.logs.push(log);
   if (gameState.logs.length > 100) {
     gameState.logs.shift(); // keep last 100 logs
+  }
+  
+  if (isHost) {
+    broadcastLog(log);
   }
 }
 
