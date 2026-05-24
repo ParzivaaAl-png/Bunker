@@ -1208,11 +1208,11 @@ function syncGameUI() {
       
       gsap.fromTo("#intro-slide-catastrophe", { scale: 0.8, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.8, ease: "back.out(1.2)" });
       
-      const textToSpeak = `Внимание выжившим! Обнаружена глобальная угроза. Катастрофа: ${gameState.catastrophe.title}. ${gameState.catastrophe.description}`;
+      const textToSpeak = `Внимание всем выжившим! ... Внимание!... Обнаружена глобальная угроза... Катастрофа... ${gameState.catastrophe.title}! ... ${gameState.catastrophe.description}`;
       speakText(textToSpeak, () => {
-        // Speech finished — advance to bunker intro after a dramatic pause
+        // Speech finished — advance to bunker intro after a dramatic pause (3.0s to allow client sync buffer)
         if (isHost && gameState.status === "intro_catastrophe") {
-          setTimeout(() => startBunkerIntro(), 1500);
+          setTimeout(() => startBunkerIntro(), 3000);
         }
       });
       animateSubtitles(textToSpeak);
@@ -1232,17 +1232,22 @@ function syncGameUI() {
       
       gsap.fromTo("#intro-slide-bunker", { scale: 0.8, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.8, ease: "back.out(1.2)" });
       
-      const textToSpeak = `Голосовой процессор убежища активирован. Системы бункера запущены. Описание: ${gameState.bunker.title}. ${gameState.bunker.description}`;
+      const textToSpeak = `Внимание!... Голосовой процессор убежища — активирован! ... Все системы жизнеобеспечения... запущены. ... Описание бункера... ${gameState.bunker.title}! ... ${gameState.bunker.description}`;
       speakText(textToSpeak, () => {
-        // Speech finished — start the actual game after a dramatic pause
+        // Speech finished — start the actual game after a dramatic pause (3.0s to allow client sync buffer)
         if (isHost && gameState.status === "intro_bunker") {
-          setTimeout(() => finishIntroAndStartGame(), 1500);
+          setTimeout(() => finishIntroAndStartGame(), 3000);
         }
       });
       animateSubtitles(textToSpeak);
     } else if (!gameState.status.startsWith("intro") && lastSpokenPhase !== "") {
       lastSpokenPhase = "";
       if (window.speechSynthesis) window.speechSynthesis.cancel();
+      if (ttsFallbackTimeout) {
+        clearTimeout(ttsFallbackTimeout);
+        ttsFallbackTimeout = null;
+      }
+      activeUtterance = null;
       
       const introOverlay = document.getElementById("intro-cinema-overlay");
       if (introOverlay) {
@@ -2285,18 +2290,75 @@ function addLocalLog(text, type) {
 // Variable to block multiple speech synthesis triggers on state changes
 let lastSpokenPhase = "";
 
-// Chrome speechSynthesis bug workaround: periodic resume to prevent stalling on long texts
+// Global references to prevent garbage collection of SpeechSynthesisUtterance and manage fallbacks
+let activeUtterance = null;
+let ttsFallbackTimeout = null;
 let speechResumeInterval = null;
 
+function playTtsAlertSound() {
+  if (!window.AudioContext && !window.webkitAudioContext) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const now = ctx.currentTime;
+    
+    // Retro double alert beep
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = "sine";
+    osc1.frequency.setValueAtTime(880, now); // A5 note
+    osc1.frequency.exponentialRampToValueAtTime(1100, now + 0.12);
+    gain1.gain.setValueAtTime(0.12, now);
+    gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.12);
+
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = "sine";
+    osc2.frequency.setValueAtTime(987.77, now + 0.15); // B5 note
+    osc2.frequency.exponentialRampToValueAtTime(1320, now + 0.3);
+    gain2.gain.setValueAtTime(0.12, now + 0.15);
+    gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.15);
+    osc2.stop(now + 0.3);
+  } catch (e) {
+    console.warn("AudioContext sound synthesis failed:", e);
+  }
+}
+
 function speakText(text, onEndCallback) {
+  // Clear any existing fallback timeout and resume interval
+  if (ttsFallbackTimeout) {
+    clearTimeout(ttsFallbackTimeout);
+    ttsFallbackTimeout = null;
+  }
+  clearInterval(speechResumeInterval);
+
+  // Estimate speaking time based on word count (~130 words per minute, min 10 seconds)
+  const wordCount = text.split(/\s+/).length;
+  const fallbackDuration = Math.min(45000, Math.max(10000, (wordCount / 130) * 60 * 1000));
+  let startTime = Date.now();
+
   if (!('speechSynthesis' in window)) {
-    if (onEndCallback) setTimeout(onEndCallback, 500);
+    console.warn("SpeechSynthesis not supported by browser. Using fallback timer:", fallbackDuration);
+    if (onEndCallback) {
+      ttsFallbackTimeout = setTimeout(onEndCallback, fallbackDuration);
+    }
     return;
   }
 
-  // Cancel any ongoing speech and clear previous resume interval
+  // Detach event handlers from previous utterance before cancelling to avoid unwanted trigger
+  if (activeUtterance) {
+    activeUtterance.onend = null;
+    activeUtterance.onerror = null;
+  }
+
+  // Cancel any ongoing speech
   window.speechSynthesis.cancel();
-  clearInterval(speechResumeInterval);
 
   // Remove bold tags, bullets, or HTML tags for cleaner speech
   const cleanedText = text
@@ -2307,39 +2369,75 @@ function speakText(text, onEndCallback) {
   const utterance = new SpeechSynthesisUtterance(cleanedText);
   utterance.lang = 'ru-RU';
   
-  // Find the best available Russian voice (prefer neural/online for natural lively sound)
+  // Store reference globally to prevent garbage collection mid-speech (Chrome bug)
+  activeUtterance = utterance;
+  
+  // Find the best available Russian voice by sorting them by score
   const voices = window.speechSynthesis.getVoices();
   const ruVoices = voices.filter(v => v.lang.startsWith('ru'));
   
-  // Priority: Neural/Online premium voices > Google > Microsoft > any Russian
-  const bestVoice = ruVoices.find(v => /neural|online|premium/i.test(v.name)) ||
-                    ruVoices.find(v => /google/i.test(v.name)) ||
-                    ruVoices.find(v => /microsoft/i.test(v.name)) ||
-                    ruVoices[0];
+  const getVoiceScore = (voice) => {
+    const name = voice.name.toLowerCase();
+    if (name.includes("natural")) return 100;
+    if (name.includes("online")) return 90;
+    if (name.includes("neural")) return 80;
+    if (name.includes("dmitry") || name.includes("svetlana")) return 70;
+    if (name.includes("milena") || name.includes("yuri")) return 65;
+    if (name.includes("google")) return 50;
+    if (name.includes("microsoft")) return 30;
+    return 10;
+  };
+
+  ruVoices.sort((a, b) => getVoiceScore(b) - getVoiceScore(a));
+  const bestVoice = ruVoices[0];
   
   if (bestVoice) {
     utterance.voice = bestVoice;
     console.log("TTS Voice selected:", bestVoice.name);
   }
 
-  // Lively announcer parameters (slightly faster and brighter for natural feel)
-  utterance.pitch = 1.05;
-  utterance.rate = 0.95;
+  // Adjust parameters: natural/neural voices sound best at default pitch, 
+  // while mechanical offline voices benefit from slight tuning to sound like a warning system.
+  const isNatural = bestVoice && /natural|online|neural/i.test(bestVoice.name);
+  utterance.pitch = isNatural ? 1.0 : 1.05;
+  utterance.rate = isNatural ? 0.95 : 1.02;
   utterance.volume = 1.0;
 
   // Fire callback when speech finishes (or on error)
   let callbackFired = false;
-  const fireCallback = () => {
+  const fireCallback = (reason) => {
     if (callbackFired) return;
     callbackFired = true;
+    
     clearInterval(speechResumeInterval);
-    if (onEndCallback) onEndCallback();
+    activeUtterance = null;
+    
+    const elapsed = Date.now() - startTime;
+    if (onEndCallback) {
+      // If speech ended suspiciously fast (< 3 seconds), it likely errored out or was blocked by autoplay/permissions.
+      // In this case, we wait out the fallback duration so that other players can still listen.
+      if (elapsed < 3000) {
+        const remainingTime = Math.max(0, fallbackDuration - elapsed);
+        console.warn(`Speech ended suspiciously fast (${elapsed}ms, reason: ${reason}). Waiting remaining fallback time: ${remainingTime}ms`);
+        ttsFallbackTimeout = setTimeout(onEndCallback, remainingTime);
+      } else {
+        console.log(`Speech finished successfully in ${elapsed}ms.`);
+        onEndCallback();
+      }
+    }
   };
 
-  utterance.onend = fireCallback;
-  utterance.onerror = fireCallback;
+  utterance.onend = () => fireCallback("end");
+  utterance.onerror = (e) => fireCallback("error: " + (e ? e.error : "unknown"));
 
-  window.speechSynthesis.speak(utterance);
+  // Play retro radio emergency beep alert sound
+  playTtsAlertSound();
+
+  // Delay actual speech synthesis slightly to let the radio chime play clearly
+  setTimeout(() => {
+    startTime = Date.now(); // Reset start time to when speech actually begins
+    window.speechSynthesis.speak(utterance);
+  }, 350);
 
   // Chrome bug workaround: speechSynthesis silently pauses after ~15 seconds on long texts.
   // Periodically call resume() to keep it alive.
