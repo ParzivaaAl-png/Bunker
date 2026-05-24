@@ -284,7 +284,7 @@ function init3D() {
 
     // Event listener for raycasting on window instead of canvas so pointer-events: none works
     window.addEventListener("mousemove", onDeckMouseMove);
-    window.addEventListener("click", onDeckMouseClick);
+    window.addEventListener("pointerdown", onDeckMouseClick);
   }
 
   // B. Spotlight Active Speaker 3D Card
@@ -318,6 +318,9 @@ function init3D() {
 
   // Resize Listener
   window.addEventListener("resize", handleResize);
+  
+  // Call once immediately to initialize camera settings and sizes
+  handleResize();
 }
 
 function handleResize() {
@@ -330,8 +333,14 @@ function handleResize() {
     deck3D.height = deckWrapper.clientHeight;
     deck3D.camera.aspect = deck3D.width / deck3D.height;
     
-    // Dynamic responsive Z-distance to avoid left/right card truncation in portrait mobile screens!
-    deck3D.camera.position.z = isMobile ? 12.5 : 9.0;
+    // Dynamic responsive Z-distance and Y offset to anchor fanned cards perfectly at the bottom of mobile screens!
+    if (isMobile) {
+      deck3D.camera.position.z = 11.5;
+      deck3D.camera.position.y = -2.0; // Anchored at the bottom on mobile
+    } else {
+      deck3D.camera.position.z = 9.0;
+      deck3D.camera.position.y = 0.0;
+    }
     
     deck3D.camera.updateProjectionMatrix();
     deck3D.renderer.setSize(deck3D.width, deck3D.height);
@@ -344,8 +353,8 @@ function handleResize() {
     const h = speakerWrapper.clientHeight;
     spotlight3D.camera.aspect = w / h;
     
-    // Dynamic speaker card Z-distance for mobile portrait frames
-    spotlight3D.camera.position.z = isMobile ? 11.5 : 9.2;
+    // Dynamic speaker card Z-distance for mobile portrait frames (makes it neat and slightly smaller)
+    spotlight3D.camera.position.z = isMobile ? 12.0 : 9.2;
     
     spotlight3D.camera.updateProjectionMatrix();
     spotlight3D.renderer.setSize(w, h);
@@ -900,8 +909,16 @@ function onDeckMouseClick(event) {
   const myPlayer = window.gameState ? window.gameState.players.find(p => p.id === window.myPeerId) : null;
   if (myPlayer && !myPlayer.isAlive) return;
 
-  // Ignore clicks on UI elements like buttons, sidebars, capsule bars
-  if (event.target.closest("button") || event.target.closest(".inspected-card-actions") || event.target.closest(".floating-voice-controls") || event.target.closest(".sidebar")) {
+  // Ignore clicks on UI elements like buttons, sidebars, capsule bars, top bar, display box, warning bar
+  if (
+    event.target.closest("button") || 
+    event.target.closest(".inspected-card-actions") || 
+    event.target.closest(".floating-voice-controls") || 
+    event.target.closest(".sidebar") ||
+    event.target.closest(".game-top-bar") ||
+    event.target.closest(".spectator-warning-bar") ||
+    event.target.closest(".phase-display-box")
+  ) {
     return;
   }
 
@@ -951,10 +968,10 @@ function inspectCard(cardMesh) {
   gsap.killTweensOf(cardMesh.rotation);
   gsap.killTweensOf(cardMesh.scale);
 
-  // Animate card to beautiful center floating position and keep scale at 1.0 to fit perfectly within the viewport bounds
+  // Animate card to beautiful center floating position relative to the camera's Y center, keeping scale at 1.0 to fit perfectly within the viewport bounds
   gsap.to(cardMesh.position, {
     x: 0,
-    y: 0.5,
+    y: deck3D.camera.position.y + 0.5, // Position relative to camera Y center!
     z: 4.5, // Perfect distance (Z = 4.5) to keep bottom actions bar fully visible
     duration: 0.6,
     ease: "power3.out"

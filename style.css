@@ -2460,14 +2460,28 @@ body:has(#screen-game.active) .my-3d-deck-wrapper {
     max-width: 100% !important;
   }
   
-  /* 3. Floating Voice Controls positioned ergonomically under the top bar */
+  /* 3. Floating Voice Controls positioned ergonomically at the bottom-left on phones */
   .floating-voice-controls {
-    bottom: auto;
-    top: 105px; /* Neatly fits directly below the top nav bar and warning banner */
-    left: 15px;
-    padding: 6px 12px;
-    font-size: 0.8rem;
-    z-index: 100;
+    bottom: 20px !important;
+    top: auto !important;
+    left: 20px !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    z-index: 1000 !important; /* Stand above fanned cards and modals */
+    pointer-events: auto !important;
+  }
+  
+  .floating-voice-controls .mic-status-text {
+    display: none !important; /* Hide text, show only button emblem */
+  }
+  
+  .floating-voice-controls button {
+    width: 44px !important;
+    height: 44px !important;
+    font-size: 1.1rem !important;
+    margin: 0 !important;
   }
   
   .floating-deck-tip {
