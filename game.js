@@ -324,6 +324,32 @@ function handleClientMessage(clientPeerId, msg, conn) {
       player.micMuted = msg.isMuted;
       broadcastState();
     }
+  } else if (msg.type === "REVEAL_CARD") {
+    const p = gameState.players.find(p => p.id === clientPeerId);
+    if (p && p.isAlive) {
+      // Check Rule 3 constraint: only one card can be opened per turn!
+      if (p.id === gameState.activeSpeakerId && gameState.speakerHasRevealedThisTurn) {
+        return;
+      }
+      p.revealed[msg.cardType] = true;
+      const cardVal = p.cards[msg.cardType];
+      addLocalLog(`Игрок ${p.nickname} раскрыл карту [${getCardCategoryLabel(msg.cardType)}]: "${cardVal}"`, "action");
+      if (p.id === gameState.activeSpeakerId) {
+        gameState.activeSpeakerCardType = msg.cardType; // Sync in 3D Spotlight
+        gameState.speakerHasRevealedThisTurn = true; // Mark as revealed!
+      }
+      broadcastState();
+    }
+  } else if (msg.type === "PLAY_SPECIAL") {
+    const p = gameState.players.find(p => p.id === clientPeerId);
+    if (p && p.isAlive) {
+      const card = p.specials[msg.index];
+      if (card && !card.played) {
+        card.played = true;
+        addLocalLog(`🔥 Игрок ${p.nickname} разыграл Специальное Условие: "${card.title}" (${card.text})`, "action");
+        broadcastState();
+      }
+    }
   }
 }
 
