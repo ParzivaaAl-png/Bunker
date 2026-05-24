@@ -321,12 +321,18 @@ function init3D() {
 }
 
 function handleResize() {
+  const isMobile = (window.innerWidth < 600);
+
   // Resizing Deck Canvas
   const deckWrapper = document.querySelector(".my-3d-deck-wrapper");
   if (deckWrapper && deck3D.renderer) {
     deck3D.width = deckWrapper.clientWidth;
     deck3D.height = deckWrapper.clientHeight;
     deck3D.camera.aspect = deck3D.width / deck3D.height;
+    
+    // Dynamic responsive Z-distance to avoid left/right card truncation in portrait mobile screens!
+    deck3D.camera.position.z = isMobile ? 12.5 : 9.0;
+    
     deck3D.camera.updateProjectionMatrix();
     deck3D.renderer.setSize(deck3D.width, deck3D.height);
   }
@@ -337,6 +343,10 @@ function handleResize() {
     const w = speakerWrapper.clientWidth;
     const h = speakerWrapper.clientHeight;
     spotlight3D.camera.aspect = w / h;
+    
+    // Dynamic speaker card Z-distance for mobile portrait frames
+    spotlight3D.camera.position.z = isMobile ? 11.5 : 9.2;
+    
     spotlight3D.camera.updateProjectionMatrix();
     spotlight3D.renderer.setSize(w, h);
   }

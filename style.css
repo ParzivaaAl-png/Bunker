@@ -2412,6 +2412,210 @@ body:has(#screen-game.active) .my-3d-deck-wrapper {
   font-size: 1.15rem;
 }
 
+/* =============================================================================
+   MOBILE RESPONSIVENESS (MAX-WIDTH: 600PX)
+   ============================================================================= */
+@media (max-width: 600px) {
+  /* 1. Top bar & Navigation */
+  .game-top-bar {
+    padding: 8px 12px;
+    height: auto;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+  }
+  
+  .room-indicator {
+    font-size: 0.8rem;
+    width: 100%;
+    text-align: center;
+    order: -1;
+  }
+  
+  .top-nav-buttons {
+    width: 100%;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  
+  .top-nav-buttons button {
+    flex: 1;
+    font-size: 0.75rem;
+    padding: 6px 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-width: 0;
+  }
+  
+  /* Hide the text in top nav buttons to make room for icons and badges */
+  .btn-text {
+    display: none !important;
+  }
+  
+  /* 2. Sidebars full screen mode on phones */
+  .sidebar {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  /* 3. Floating Voice Controls positioned ergonomically under the top bar */
+  .floating-voice-controls {
+    bottom: auto;
+    top: 105px; /* Neatly fits directly below the top nav bar and warning banner */
+    left: 15px;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    z-index: 100;
+  }
+  
+  .floating-deck-tip {
+    display: none !important; /* Hide to avoid cluttering vertical viewport */
+  }
+  
+  /* 4. Inspected Card actions button pill capsule positioned ergonomically at the bottom */
+  .inspected-card-actions {
+    top: auto !important;
+    bottom: 25px !important;
+    padding: 8px 16px;
+    width: 90%;
+    max-width: 320px;
+    gap: 10px;
+    z-index: 900;
+  }
+  
+  .inspected-card-actions button {
+    font-size: 0.85rem;
+    padding: 8px 14px;
+    flex: 1;
+  }
+  
+  /* 5. Compact active speaker spotlight box */
+  .speaker-3d-card-wrapper {
+    height: 310px !important;
+    min-height: 250px !important;
+    margin-top: 5px;
+  }
+  
+  .active-speaker-name-text {
+    font-size: 1.35rem;
+    margin: 4px 0;
+  }
+  
+  .spotlight-frame {
+    padding: 8px;
+    gap: 4px;
+  }
+  
+  .phase-display-box {
+    padding: 6px 15px;
+    gap: 10px;
+  }
+  
+  .phase-title {
+    font-size: 1.1rem;
+  }
+  
+  .phase-details {
+    font-size: 0.72rem;
+  }
+  
+  .timer-box {
+    font-size: 1.1rem;
+    padding: 6px 10px;
+  }
+  
+  /* 6. Dossier horizontal scroll bar for general discussion */
+  .players-list-bar {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto !important;
+    white-space: nowrap;
+    padding: 4px 0 10px 0;
+    width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .discussion-player-btn {
+    flex: 0 0 auto; /* Stop shrinking buttons, scroll horizontally! */
+    font-size: 0.82rem;
+    padding: 8px 14px;
+  }
+  
+  /* 7. Centered adaptive Lobby panels stack */
+  .lobby-container {
+    padding: 10px;
+    width: 100%;
+  }
+  
+  .lobby-panels {
+    flex-direction: column !important;
+    align-items: center;
+    gap: 15px;
+  }
+  
+  .lobby-card {
+    width: 100% !important;
+    max-width: 440px !important;
+    padding: 15px;
+  }
+  
+  .lobby-header h1 {
+    font-size: 2.8rem;
+    letter-spacing: 4px;
+  }
+  
+  .button-row {
+    flex-direction: column;
+    width: 100%;
+    gap: 10px;
+  }
+  
+  .button-row button {
+    width: 100%;
+  }
+  
+  /* 8. Voting overlay glass card sizing */
+  .voting-panel-glass {
+    width: 92% !important;
+    max-width: 360px !important;
+    padding: 20px 15px;
+  }
+  
+  .voting-panel-title {
+    font-size: 1.2rem;
+    letter-spacing: 1px;
+  }
+  
+  .voting-panel-instruction {
+    font-size: 0.82rem;
+  }
+  
+  .btn-vote-center {
+    font-size: 0.88rem;
+    padding: 10px 14px;
+  }
+  
+  /* 9. Player grid card sizes */
+  .player-card {
+    padding: 8px;
+    gap: 6px;
+  }
+  
+  .revealed-item {
+    padding: 2px 6px;
+  }
+  
+  .revealed-item .item-type {
+    font-size: 0.7rem;
+  }
+  
+  .revealed-item .item-value {
+    font-size: 0.78rem;
+  }
+}
+
 
 
 
