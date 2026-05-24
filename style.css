@@ -2741,7 +2741,52 @@ body:has(#screen-game.active) .my-3d-deck-wrapper {
   .revealed-item .item-value {
     font-size: 0.78rem;
   }
+
+  /* 10. Airlock Decompression Cinema Mobile Adaptation */
+  .cinema-card-container {
+    width: 280px !important;
+    padding: 25px 20px !important;
+    gap: 15px !important;
+  }
+  
+  .cinema-victim-avatar {
+    width: 70px !important;
+    height: 70px !important;
+    font-size: 2.0rem !important;
+  }
+  
+  .cinema-victim-name {
+    font-size: 1.4rem !important;
+    letter-spacing: 1px !important;
+  }
+  
+  .cinema-victim-status {
+    font-size: 0.72rem !important;
+    letter-spacing: 2px !important;
+  }
+  
+  .cinema-warning-message {
+    font-size: 0.85rem !important;
+    letter-spacing: 2px !important;
+    margin-top: 20px !important;
+    text-align: center !important;
+    width: 90% !important;
+  }
+  
+  .cinema-hazard-tape {
+    height: 40px !important;
+  }
+  
+  .hazard-stripe-text {
+    font-size: 0.8rem !important;
+    letter-spacing: 2px !important;
+  }
+
+  .biohazard-logo-bg {
+    font-size: 20rem !important;
+  }
 }
+
 
 
 
