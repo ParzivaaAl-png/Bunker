@@ -337,12 +337,13 @@ function handleResize() {
     
     // Dynamic responsive Z-distance and Y offset to anchor fanned cards perfectly at the bottom of mobile screens!
     if (isMobile) {
-      deck3D.camera.position.z = 11.5;
-      deck3D.camera.position.y = isGlobalDisc ? 0.0 : -2.0; // Reset camera center during global discussion to let cards fly-in!
+      deck3D.camera.position.z = 10.0;
+      deck3D.camera.position.y = isGlobalDisc ? 0.0 : 0.2; // Perfectly anchors fanned cards at bottom!
     } else {
       deck3D.camera.position.z = 9.0;
       deck3D.camera.position.y = 0.0;
     }
+
     
     deck3D.camera.updateProjectionMatrix();
     deck3D.renderer.setSize(deck3D.width, deck3D.height);

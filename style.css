@@ -39,11 +39,13 @@ body {
   background-color: var(--bg-dark);
   font-family: var(--font-body);
   color: var(--text-primary);
-  overflow-x: hidden;
+  overflow: hidden; /* Prevent vertical and horizontal scroll of the entire page on phones */
   height: 100vh;
+  height: 100dvh; /* Support dynamic viewport height for mobile browsers */
   display: flex;
   flex-direction: column;
 }
+
 
 /* Cyberpunk-ish overlay grids */
 .grid-overlay {
@@ -241,6 +243,7 @@ p {
   opacity: 0;
   transition: opacity 0.5s ease;
   flex: 1;
+  min-height: 0; /* Critical for correct flex height distribution */
 }
 
 .screen.active {
@@ -252,7 +255,16 @@ p {
 #screen-lobby {
   align-items: center;
   justify-content: center;
+  overflow-y: auto; /* Allow scrolling inside matchmaking lobby if there are many players */
+  -webkit-overflow-scrolling: touch;
 }
+
+#screen-game {
+  overflow: hidden; /* Prevent any layout shifts or scrolling on main board */
+  height: 100%;
+  width: 100%;
+}
+
 
 .lobby-container {
   width: 90%;
@@ -484,11 +496,13 @@ p {
 .game-layout {
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  width: 100vw;
+  height: 100%; /* Fill the active screen wrapper exactly */
+  width: 100%;
   padding: 15px;
   gap: 15px;
+  box-sizing: border-box;
 }
+
 
 /* Game Header (Global Info) */
 .game-header {
@@ -2436,6 +2450,11 @@ body:has(#screen-game.active) .my-3d-deck-wrapper {
    MOBILE RESPONSIVENESS (MAX-WIDTH: 600PX)
    ============================================================================= */
 @media (max-width: 600px) {
+  .game-layout {
+    padding: 8px !important;
+    gap: 8px !important;
+  }
+
   /* 1. Top bar & Navigation */
   .game-top-bar {
     padding: 8px 12px;
@@ -2444,6 +2463,7 @@ body:has(#screen-game.active) .my-3d-deck-wrapper {
     gap: 8px;
     justify-content: center;
   }
+
   
   .room-indicator {
     font-size: 0.8rem;
