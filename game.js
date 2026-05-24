@@ -361,6 +361,17 @@ function handleHostMessage(msg) {
     syncGameUI();
     manageVoiceMuteState();
     syncMeshCalls();
+  } else if (msg.type === "TIMER_UPDATE") {
+    gameState.activeSpeakerTime = msg.time;
+    // Update timer UI elements directly for ultra-smooth performance and zero overhead!
+    const timerBox = document.getElementById("timer-box");
+    const timerLabel = document.getElementById("game-timer");
+    if (timerBox && timerLabel) {
+      timerBox.className = gameState.activeSpeakerTime <= 10 ? "timer-box warning" : "timer-box";
+      const m = Math.floor(gameState.activeSpeakerTime / 60).toString().padStart(2, '0');
+      const s = (gameState.activeSpeakerTime % 60).toString().padStart(2, '0');
+      timerLabel.textContent = `${m}:${s}`;
+    }
   } else if (msg.type === "ERROR") {
     showNotification("Ошибка: " + msg.message);
     resetConnection();
@@ -984,6 +995,31 @@ function advanceAfterExpulsion() {
   broadcastState();
 }
 
+// Broadcast timer updates separately using a light packet to prevent BinaryPack buffer overflows (read index out of range)
+function broadcastTimer() {
+  if (!isHost) return;
+  
+  for (const pid in clientConns) {
+    const conn = clientConns[pid];
+    if (conn && conn.open) {
+      conn.send({
+        type: "TIMER_UPDATE",
+        time: gameState.activeSpeakerTime
+      });
+    }
+  }
+  
+  // Update Host's own view directly for ultra-smooth performance
+  const timerBox = document.getElementById("timer-box");
+  const timerLabel = document.getElementById("game-timer");
+  if (timerBox && timerLabel) {
+    timerBox.className = gameState.activeSpeakerTime <= 10 ? "timer-box warning" : "timer-box";
+    const m = Math.floor(gameState.activeSpeakerTime / 60).toString().padStart(2, '0');
+    const s = (gameState.activeSpeakerTime % 60).toString().padStart(2, '0');
+    timerLabel.textContent = `${m}:${s}`;
+  }
+}
+
 // Timer loop
 function startTimer() {
   clearInterval(gameTimerInterval);
@@ -994,8 +1030,8 @@ function startTimer() {
       if (gameState.activeSpeakerTime > 0) {
         gameState.activeSpeakerTime--;
         
-        // Broadcast state updates during active timers
-        broadcastState();
+        // Broadcast only light timer update instead of heavy full state to avoid network overloading
+        broadcastTimer();
       } else {
         if (gameState.status.startsWith("discussion") || gameState.status === "defense") {
           nextSpeakerOrPhase();
