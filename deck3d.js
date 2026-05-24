@@ -557,15 +557,28 @@ function update3DSpotlight(activeSpeakerId, players, currentRound, activeSpeaker
   // If revealed, we display the front face: rotation.y = 0
   const targetYRotation = isRev ? 0 : Math.PI;
 
-  if (spotlight3D.isRevealed !== isRev && spotlight3D.isRevealed === false && isRev === true) {
-    // Beautiful 3D Flip animation using GSAP by animating a virtual Y property that clashing animate() loop tracks!
-    spotlight3D.revealRotationY = Math.PI; // start face-down
-    gsap.to(spotlight3D, {
-      revealRotationY: 0,
-      duration: 1.2,
-      ease: "back.out(1.5)",
-      overwrite: "auto"
-    });
+  if (spotlight3D.isRevealed !== isRev) {
+    if (spotlight3D.isRevealed === false && isRev === true) {
+      // Beautiful 3D Flip animation to face-up (reveal) using GSAP!
+      spotlight3D.revealRotationY = Math.PI; // start face-down
+      gsap.to(spotlight3D, {
+        revealRotationY: 0,
+        duration: 1.2,
+        ease: "back.out(1.5)",
+        overwrite: "auto"
+      });
+    } else if (spotlight3D.isRevealed === true && isRev === false) {
+      // Beautiful 3D Flip animation back to face-down (question mark) using GSAP!
+      spotlight3D.revealRotationY = 0; // start face-up
+      gsap.to(spotlight3D, {
+        revealRotationY: Math.PI,
+        duration: 1.2,
+        ease: "back.out(1.5)",
+        overwrite: "auto"
+      });
+    } else {
+      spotlight3D.revealRotationY = targetYRotation;
+    }
   } else {
     spotlight3D.revealRotationY = targetYRotation;
   }
