@@ -238,8 +238,8 @@ function init3D() {
     deck3D.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
     // Camera setup
-    deck3D.camera = new THREE.PerspectiveCamera(40, deck3D.width / deck3D.height, 0.1, 100);
-    deck3D.camera.position.set(0, -0.65, 6.8); // Shifted down and extremely close for huge cards fanning
+    deck3D.camera = new THREE.PerspectiveCamera(45, deck3D.width / deck3D.height, 0.1, 100);
+    deck3D.camera.position.set(0, -0.45, 7.0); // Perfect cinematic framing for fanning huge cards
 
     // Lighting
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
@@ -389,7 +389,7 @@ function update3DDeck(players, myId) {
       // Left to right fanning order along the arc
       const angle = Math.PI / 2 - (idx - (totalCards - 1) / 2) * angleStep;
       const x = Math.cos(angle) * arcRadius;
-      const y = Math.sin(angle) * arcRadius - arcRadius + 0.1; // Centered, overlapping upward fanned curve
+      const y = Math.sin(angle) * arcRadius - arcRadius - 0.25; // Shifted down for perfect fanning and visible tops
       const z = 1.2 - Math.abs(idx - (totalCards - 1) / 2) * 0.25; // Arc depth
 
       mesh.position.set(x, y, z);

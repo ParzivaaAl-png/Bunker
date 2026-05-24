@@ -477,6 +477,10 @@ p {
 }
 
 /* GAME SCREEN (SCREEN 2) */
+#screen-game {
+  position: relative;
+}
+
 .game-layout {
   display: flex;
   flex-direction: column;
@@ -1682,15 +1686,18 @@ p {
 
 .my-3d-deck-wrapper {
   position: absolute;
-  bottom: 0;
-  left: 0;
+  bottom: -20px; /* Sits slightly lower for natural bottom bleed */
+  left: 50%;
+  transform: translateX(-50%);
   width: 100%;
-  height: 480px; /* Extremely tall canvas fanning upwards over the screen */
-  pointer-events: none; /* Crucial: clicks pass through to game elements */
+  max-width: 960px; /* Restricts aspect ratio to perfectly fit and double the visual card scale! */
+  height: 480px; /* Tall canvas for giant vertical fanning */
+  pointer-events: none; /* Clicks pass through empty space to other elements */
   z-index: 95; /* Float on top of general interface, below sidebars (which are 100) */
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: visible;
 }
 
 .my-3d-deck-wrapper canvas {
