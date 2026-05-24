@@ -950,6 +950,11 @@ function syncGameUI() {
     document.getElementById("screen-lobby").className = "screen";
     document.getElementById("screen-game").className = "screen active";
     
+    // Auto-trigger window resize reflow to ensure 3D card canvases are sized correctly immediately
+    requestAnimationFrame(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+    
     // Update global cards
     if (gameState.catastrophe) {
       document.getElementById("catastrophe-title").textContent = gameState.catastrophe.title;

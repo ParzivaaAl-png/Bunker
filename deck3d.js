@@ -43,7 +43,7 @@ const CATEGORY_INFO = {
 // 1. DYNAMIC CANVAS TEXTURE CREATOR
 // -----------------------------------------------------------------------------
 
-function drawCardFace(category, text, revealed, color) {
+function drawCardFace(category, text, revealed, color, isRevealedToAll) {
   const canvas = document.createElement("canvas");
   canvas.width = 512;
   canvas.height = 768;
@@ -72,10 +72,14 @@ function drawCardFace(category, text, revealed, color) {
     ctx.stroke();
   }
 
-  // Draw border
-  ctx.strokeStyle = color;
+  // Draw border: dimmed grey border if fanned card is hidden in hand, neon color border if revealed to everyone
+  const isPrivate = (revealed && isRevealedToAll === false);
+  const finalBorderColor = isPrivate ? "rgba(140, 150, 170, 0.4)" : color;
+  const shadowBlurVal = isPrivate ? 0 : 15;
+
+  ctx.strokeStyle = finalBorderColor;
   ctx.shadowColor = color;
-  ctx.shadowBlur = 15;
+  ctx.shadowBlur = shadowBlurVal;
   ctx.lineWidth = 6;
   ctx.strokeRect(20, 20, 472, 728);
 
@@ -85,7 +89,7 @@ function drawCardFace(category, text, revealed, color) {
   ctx.strokeRect(28, 28, 456, 712);
 
   // Tech corners
-  ctx.fillStyle = color;
+  ctx.fillStyle = finalBorderColor;
   ctx.fillRect(15, 15, 25, 6);
   ctx.fillRect(15, 15, 6, 25);
   ctx.fillRect(472, 15, 25, 6);
@@ -98,12 +102,19 @@ function drawCardFace(category, text, revealed, color) {
   if (revealed) {
     // FRONT FACE: Characteristics
     // Draw Category Badge
-    ctx.shadowBlur = 5;
+    ctx.shadowBlur = isPrivate ? 0 : 5;
     ctx.shadowColor = color;
     ctx.font = "bold 24px 'Orbitron', 'Inter', sans-serif";
-    ctx.fillStyle = color;
+    ctx.fillStyle = finalBorderColor;
     ctx.textAlign = "center";
-    const label = CATEGORY_INFO[category]?.label.toUpperCase() || "ДОСЬЕ";
+    
+    let label = CATEGORY_INFO[category]?.label.toUpperCase() || "ДОСЬЕ";
+    if (isRevealedToAll === true) {
+      label += "  🔓"; // Revealed badge icon
+    } else if (isRevealedToAll === false) {
+      label += "  🔒"; // Private/hidden in hand badge icon
+    }
+    
     ctx.fillText(label, 256, 80);
 
     // Decorative Line
@@ -116,7 +127,7 @@ function drawCardFace(category, text, revealed, color) {
     ctx.stroke();
 
     // Secondary line
-    ctx.strokeStyle = color;
+    ctx.strokeStyle = finalBorderColor;
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(180, 110);
@@ -134,7 +145,7 @@ function drawCardFace(category, text, revealed, color) {
     ctx.strokeRect(216, 180, 80, 80);
 
     // Main Value text wrapping
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = isPrivate ? "rgba(255, 255, 255, 0.8)" : "#ffffff";
     ctx.shadowBlur = 0;
     ctx.font = "500 28px 'Inter', sans-serif";
     ctx.textAlign = "center";
@@ -143,7 +154,7 @@ function drawCardFace(category, text, revealed, color) {
 
     // Watermark/Footer
     ctx.font = "bold 16px 'Orbitron', 'Inter', sans-serif";
-    ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
     ctx.fillText("BUNKER V.2", 256, 680);
     ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
     ctx.strokeRect(200, 655, 112, 35);
@@ -239,7 +250,7 @@ function init3D() {
 
     // Camera setup
     deck3D.camera = new THREE.PerspectiveCamera(45, deck3D.width / deck3D.height, 0.1, 100);
-    deck3D.camera.position.set(0, -0.45, 7.0); // Perfect cinematic framing for fanning huge cards
+    deck3D.camera.position.set(0, 0, 9.0); // Clean camera framing for fanning card hand in full viewport
 
     // Lighting
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
@@ -339,6 +350,14 @@ function createSpotlightPlaceholder() {
 function update3DDeck(players, myId) {
   if (!deck3D.scene) return;
 
+  // Self-Healing Resize Check: fixes the 0x0 initial canvas rendering bug instantly!
+  const deckWrapper = document.querySelector(".my-3d-deck-wrapper");
+  if (deckWrapper && (deck3D.width === 0 || deck3D.height === 0 || deck3D.width !== deckWrapper.clientWidth || deck3D.height !== deckWrapper.clientHeight)) {
+    if (deckWrapper.clientWidth > 0 && deckWrapper.clientHeight > 0) {
+      handleResize();
+    }
+  }
+
   const myPlayer = players.find(p => p.id === myId);
   if (!myPlayer) return;
 
@@ -357,47 +376,47 @@ function update3DDeck(players, myId) {
 
   const totalCards = cardCategories.length;
   
-    // Curved layout math along an arc
-    const arcRadius = 7.5;
-    const angleStep = 0.16; // Distance between cards
+  // Curved layout math along an arc: perfectly tailored for the container-free full viewport
+  const arcRadius = 7.0;
+  const angleStep = 0.16; // Elegant distance spacing
 
-    cardCategories.forEach((cat, idx) => {
-      const val = myPlayer.cards[cat] || "Скрытая характеристика";
-      const isRev = myPlayer.revealed[cat] || false;
-      const color = CATEGORY_INFO[cat]?.color || "#ffffff";
+  cardCategories.forEach((cat, idx) => {
+    const val = myPlayer.cards[cat] || "Скрытая характеристика";
+    const isRev = myPlayer.revealed[cat] || false;
+    const color = CATEGORY_INFO[cat]?.color || "#ffffff";
 
-      // Create Canvas textures
-      const frontCanvas = drawCardFace(cat, val, true, color);
-      const backCanvas = drawCardFace(cat, val, false, color);
+    // Create Canvas textures (passing reveal status to display public outline/lock badges)
+    const frontCanvas = drawCardFace(cat, val, true, color, isRev);
+    const backCanvas = drawCardFace(cat, val, false, color, isRev);
 
-      const frontTex = new THREE.CanvasTexture(frontCanvas);
-      const backTex = new THREE.CanvasTexture(backCanvas);
+    const frontTex = new THREE.CanvasTexture(frontCanvas);
+    const backTex = new THREE.CanvasTexture(backCanvas);
 
-      // Standard-sized large playing cards (width = 2.6, height = 4.0)
-      const geom = new THREE.BoxGeometry(2.6, 4.0, 0.05);
-      
-      // Materials for 6 faces: Right, Left, Top, Bottom, Front (index 4), Back (index 5)
-      const sidesMat = new THREE.MeshStandardMaterial({ color: 0x101424, roughness: 0.8 });
-      const materials = [
-        sidesMat, sidesMat, sidesMat, sidesMat,
-        new THREE.MeshPhongMaterial({ map: frontTex, transparent: true }), // Front Face
-        new THREE.MeshPhongMaterial({ map: backTex, transparent: true })  // Back Face
-      ];
+    // Sleekly shrunk physical card size (width = 1.8, height = 2.8, depth = 0.05)
+    const geom = new THREE.BoxGeometry(1.8, 2.8, 0.05);
+    
+    // Materials for 6 faces: Right, Left, Top, Bottom, Front (index 4), Back (index 5)
+    const sidesMat = new THREE.MeshStandardMaterial({ color: 0x101424, roughness: 0.8 });
+    const materials = [
+      sidesMat, sidesMat, sidesMat, sidesMat,
+      new THREE.MeshPhongMaterial({ map: frontTex, transparent: true }), // Front Face
+      new THREE.MeshPhongMaterial({ map: backTex, transparent: true })  // Back Face
+    ];
 
-      const mesh = new THREE.Mesh(geom, materials);
-      
-      // Left to right fanning order along the arc
-      const angle = Math.PI / 2 - (idx - (totalCards - 1) / 2) * angleStep;
-      const x = Math.cos(angle) * arcRadius;
-      const y = Math.sin(angle) * arcRadius - arcRadius - 0.35; // Elevated slightly higher for containerless float
-      const z = 1.2 - Math.abs(idx - (totalCards - 1) / 2) * 0.25; // Arc depth
+    const mesh = new THREE.Mesh(geom, materials);
+    
+    // Left to right fanning order along the arc
+    const angle = Math.PI / 2 - (idx - (totalCards - 1) / 2) * angleStep;
+    const x = Math.cos(angle) * arcRadius;
+    const y = Math.sin(angle) * arcRadius - arcRadius - 2.15; // Anchor fanning beautifully to the bottom edge of full screen
+    const z = 1.2 - Math.abs(idx - (totalCards - 1) / 2) * 0.25; // Arc depth fanning out
 
-      mesh.position.set(x, y, z);
-      
-      // Tilting cards to face the center/camera along the arc
-      mesh.rotation.y = (angle - Math.PI / 2) * -0.2;
-      mesh.rotation.x = -0.1; // Elegant slight tilt backwards
-      mesh.rotation.z = angle - Math.PI / 2; // Perfect curve/arc rotation
+    mesh.position.set(x, y, z);
+    
+    // Tilting cards to face the center/camera along the arc
+    mesh.rotation.y = (angle - Math.PI / 2) * -0.2;
+    mesh.rotation.x = -0.1; // Elegant slight tilt backwards
+    mesh.rotation.z = angle - Math.PI / 2; // Perfect curve/arc rotation
 
     // Save defaults
     const defaultPos = mesh.position.clone();
@@ -432,6 +451,14 @@ function update3DDeck(players, myId) {
 
 function update3DSpotlight(activeSpeakerId, players, currentRound, activeSpeakerCardType) {
   if (!spotlight3D.scene) return;
+
+  // Self-Healing Resize Check: fixes 0x0 canvas sizes immediately when active speaker starts!
+  const speakerWrapper = document.querySelector(".speaker-3d-card-wrapper");
+  if (speakerWrapper && spotlight3D.renderer && (speakerWrapper.clientWidth !== spotlight3D.renderer.domElement.clientWidth || speakerWrapper.clientHeight !== spotlight3D.renderer.domElement.clientHeight)) {
+    if (speakerWrapper.clientWidth > 0 && speakerWrapper.clientHeight > 0) {
+      handleResize();
+    }
+  }
 
   // Use the active speaker's chosen card type or fallback to the current round type
   const roundCardType = activeSpeakerCardType || getRoundCardType(currentRound);
@@ -483,14 +510,15 @@ function update3DSpotlight(activeSpeakerId, players, currentRound, activeSpeaker
     }
   }
 
-  // Draw front face and back face
-  const frontCanvas = drawCardFace(roundCardType, val, true, color);
-  const backCanvas = drawCardFace(roundCardType, "Скрыто до выбора спикера", false, color);
+  // Draw front face and back face (with locks/glowing status synced correctly)
+  const frontCanvas = drawCardFace(roundCardType, val, true, color, isRev);
+  const backCanvas = drawCardFace(roundCardType, "Скрыто до выбора спикера", false, color, isRev);
 
   const frontTex = new THREE.CanvasTexture(frontCanvas);
   const backTex = new THREE.CanvasTexture(backCanvas);
 
-  const geom = new THREE.BoxGeometry(3.0, 4.6, 0.05);
+  // Sleek spotlight physical dimensions (width = 2.4, height = 3.7)
+  const geom = new THREE.BoxGeometry(2.4, 3.7, 0.05);
   const sidesMat = new THREE.MeshStandardMaterial({ color: 0x12162a, roughness: 0.8 });
   const materials = [
     sidesMat, sidesMat, sidesMat, sidesMat,
@@ -563,10 +591,9 @@ function onDeckMouseMove(event) {
       gsap.killTweensOf(topMesh.rotation);
       
       // Rise up and come closer
-      const angle = topMesh.rotation.y;
       gsap.to(topMesh.position, {
-        y: topMesh.position.y + 0.6,
-        z: topMesh.position.z + 0.8,
+        y: topMesh.position.y + 0.5,
+        z: topMesh.position.z + 0.6,
         duration: 0.3,
         ease: "power2.out"
       });
@@ -614,15 +641,18 @@ function resetCardHover(cardMesh) {
 }
 
 function onDeckMouseClick(event) {
-  if (!deck3D.scene || deck3D.inspectedCard) return;
+  if (!deck3D.scene) return;
 
   // Only process if the game screen is active and no modal/overlay is open
   const gameScreen = document.getElementById("screen-game");
   if (!gameScreen || !gameScreen.classList.contains("active")) return;
-  const inspectOverlay = document.getElementById("card-inspection-overlay");
-  if (inspectOverlay && !inspectOverlay.classList.contains("hidden")) return;
   const apocalypseOverlay = document.getElementById("apocalypse-overlay");
   if (apocalypseOverlay && !apocalypseOverlay.classList.contains("hidden")) return;
+
+  // Ignore clicks on UI elements like buttons, sidebars, capsule bars
+  if (event.target.closest("button") || event.target.closest(".inspected-card-actions") || event.target.closest(".floating-voice-controls") || event.target.closest(".sidebar")) {
+    return;
+  }
 
   const rect = deck3D.renderer.domElement.getBoundingClientRect();
   deck3D.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -631,13 +661,26 @@ function onDeckMouseClick(event) {
   deck3D.raycaster.setFromCamera(deck3D.mouse, deck3D.camera);
   const intersects = deck3D.raycaster.intersectObjects(deck3D.scene.children);
 
+  if (deck3D.inspectedCard) {
+    // Click-to-Close UX: If clicking outside the currently zoomed card, close the inspection!
+    if (intersects.length > 0 && intersects[0].object === deck3D.inspectedCard) {
+      return; // Clicking directly on the zoomed card mesh does nothing
+    }
+    closeCardInspection();
+    return;
+  }
+
+  // Normal deck clicking
+  const inspectOverlay = document.getElementById("card-inspection-overlay");
+  if (inspectOverlay && !inspectOverlay.classList.contains("hidden")) return;
+
   if (intersects.length > 0) {
     const clickedMesh = intersects[0].object;
     inspectCard(clickedMesh);
   }
 }
 
-// Bring Card to Face (Zoom inspect)
+// Bring Card to Face (Zoom inspect directly in 3D center floating space!)
 function inspectCard(cardMesh) {
   deck3D.inspectedCard = cardMesh;
   document.body.style.cursor = "default";
@@ -645,15 +688,18 @@ function inspectCard(cardMesh) {
   // Hide hovered state triggers
   deck3D.hoveredCard = null;
 
+  // Rise the canvas z-index to float above blurred glass background
+  document.querySelector(".my-3d-deck-wrapper").classList.add("inspecting");
+
   // Zoom-to-face animations using GSAP
   gsap.killTweensOf(cardMesh.position);
   gsap.killTweensOf(cardMesh.rotation);
 
-  // Animate card to center and scale
+  // Animate card to beautiful center floating position above bottom controls capsule (Y = 0.6, Z = 5.2 close to camera)
   gsap.to(cardMesh.position, {
     x: 0,
-    y: 0,
-    z: 5.5, // much closer to camera
+    y: 0.6,
+    z: 5.2,
     duration: 0.6,
     ease: "power3.out"
   });
@@ -666,41 +712,20 @@ function inspectCard(cardMesh) {
     ease: "power3.out"
   });
 
-  // Display HTML Detailed Modal Overlay concurrently
+  // Display capsule HTML Actions overlay
   setTimeout(() => {
     const overlay = document.getElementById("card-inspection-overlay");
-    const labelEl = document.getElementById("inspected-card-cat-label");
-    const titleEl = document.getElementById("inspected-card-title-text");
-    const valEl = document.getElementById("inspected-card-value-text");
-    const badgeEl = document.getElementById("inspected-card-status-badge");
     const revealBtn = document.getElementById("btn-inspect-reveal");
 
     const cat = cardMesh.userData.category;
-    const val = cardMesh.userData.text;
     const isRev = cardMesh.userData.isRevealed;
-    const color = cardMesh.userData.color;
 
-    // Apply color and text
-    labelEl.textContent = CATEGORY_INFO[cat]?.label || cat;
-    labelEl.className = "inspected-card-category " + "cat-" + cat;
-    titleEl.textContent = isRev ? "Открытая характеристика" : "Скрытая характеристика";
-    valEl.textContent = val;
-
-    // Reconcile status badge
+    // Bind and configure button reveal logic
     if (isRev) {
-      badgeEl.textContent = "Раскрыта для всех";
-      badgeEl.style.color = "var(--neon-green)";
-      badgeEl.style.borderColor = "var(--neon-green-glow)";
       revealBtn.className = "btn btn-primary btn-large hidden"; // Hide reveal if already open
     } else {
-      badgeEl.textContent = "Скрыта в вашей руке";
-      badgeEl.style.color = "var(--text-muted)";
-      badgeEl.style.borderColor = "var(--border-light)";
-      
-      // Bind reveal action
       revealBtn.className = "btn btn-primary btn-large";
       revealBtn.onclick = () => {
-        // Trigger reveal logic from main game
         revealMyCard(cat);
         closeCardInspection();
       };
@@ -716,12 +741,15 @@ function closeCardInspection() {
 
   deck3D.inspectedCard = null; // Reset immediately to prevent interface lockups on state syncs
 
+  // Restore fanning canvas z-index back to behind sidebars
+  document.querySelector(".my-3d-deck-wrapper").classList.remove("inspecting");
+
   const overlay = document.getElementById("card-inspection-overlay");
   overlay.className = "card-inspection-overlay hidden";
 
   const cardObj = deck3D.cards.find(c => c.mesh === cardMesh);
   if (cardObj) {
-    // Return to deck arc
+    // Return card mesh smoothly to its default position in fanned arc
     gsap.killTweensOf(cardMesh.position);
     gsap.killTweensOf(cardMesh.rotation);
 
