@@ -1879,7 +1879,7 @@ body:has(#screen-game.active) .my-3d-deck-wrapper {
   gap: 16px;
   width: auto;
   position: absolute;
-  bottom: 8%; /* Perfect lower screen positioning */
+  top: 61%; /* Perfectly positioned directly below the centered floating 3D card mesh */
   left: 50%;
   transform: translateX(-50%);
   background: rgba(18, 25, 41, 0.85);

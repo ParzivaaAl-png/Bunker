@@ -549,8 +549,8 @@ function update3DSpotlight(activeSpeakerId, players, currentRound, activeSpeaker
 
   spotlight3D.cardMesh = new THREE.Mesh(geom, materials);
   
-  // Scale it up nicely in center
-  spotlight3D.cardMesh.position.set(0, 0, 0);
+  // Scale it up nicely in center, elevated to sit above fanned player cards веер
+  spotlight3D.cardMesh.position.set(0, 0.9, 0);
 
   // Set rotation based on reveal status!
   // If not revealed, we display the back face: rotation.y = Math.PI (180 degrees)
@@ -834,8 +834,8 @@ function animate() {
         spotlight3D.cardMesh.rotation.y += 0.01;
         spotlight3D.cardMesh.rotation.x = Math.sin(time) * 0.2;
       } else {
-        // The real speaker card has gentle bobbing and subtle tilt
-        spotlight3D.cardMesh.position.y = Math.sin(time * 1.5) * 0.12;
+        // The real speaker card has gentle bobbing and subtle tilt, elevated above fanning hand
+        spotlight3D.cardMesh.position.y = 0.9 + Math.sin(time * 1.5) * 0.12;
         
         // Gentle Y rotation oscillation to catch neon reflections
         // Offset by initial rotation (0 if revealed, Math.PI if backcover)
