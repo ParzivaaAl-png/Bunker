@@ -999,7 +999,7 @@ function syncGameUI() {
 
     if (gameState.activeSpeakerId) {
       const activeName = getPlayerNickname(gameState.activeSpeakerId);
-      speakerBox.className = "active-speaker-box card-glass active";
+      speakerBox.className = "active-speaker-spotlight active";
       speakerNameEl.textContent = activeName;
       if (gameState.activeSpeakerId === myPeerId) {
         speakerTipEl.innerHTML = `<span class="neon-text animate-pulse">ВАШ ХОД! Вы говорите в эфире!</span>`;
@@ -1007,7 +1007,7 @@ function syncGameUI() {
         speakerTipEl.textContent = "Слушайте спикера.";
       }
     } else {
-      speakerBox.className = "active-speaker-box card-glass";
+      speakerBox.className = "active-speaker-spotlight";
       speakerNameEl.textContent = "Общая дискуссия";
       speakerTipEl.textContent = "Свободное общение для всех выживших.";
     }

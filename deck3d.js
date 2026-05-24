@@ -558,16 +558,16 @@ function update3DSpotlight(activeSpeakerId, players, currentRound, activeSpeaker
   const targetYRotation = isRev ? 0 : Math.PI;
 
   if (spotlight3D.isRevealed !== isRev && spotlight3D.isRevealed === false && isRev === true) {
-    // Beautiful 3D Flip animation using GSAP!
-    spotlight3D.cardMesh.rotation.y = Math.PI; // start face-down
-    gsap.to(spotlight3D.cardMesh.rotation, {
-      y: 0,
+    // Beautiful 3D Flip animation using GSAP by animating a virtual Y property that clashing animate() loop tracks!
+    spotlight3D.revealRotationY = Math.PI; // start face-down
+    gsap.to(spotlight3D, {
+      revealRotationY: 0,
       duration: 1.2,
       ease: "back.out(1.5)",
       overwrite: "auto"
     });
   } else {
-    spotlight3D.cardMesh.rotation.y = targetYRotation;
+    spotlight3D.revealRotationY = targetYRotation;
   }
 
   spotlight3D.isRevealed = isRev;
@@ -870,9 +870,9 @@ function animate() {
         spotlight3D.cardMesh.position.y = 0.2 + Math.sin(time * 1.5) * 0.12;
         
         // Gentle Y rotation oscillation to catch neon reflections
-        // Offset by initial rotation (0 if revealed, Math.PI if backcover)
-        const rotOffset = spotlight3D.isRevealed ? 0 : Math.PI;
-        spotlight3D.cardMesh.rotation.y = rotOffset + Math.sin(time * 0.7) * 0.08;
+        // Offset by initial rotation (smoothly animated via GSAP property, fallback to reveal state)
+        const baseRotY = (spotlight3D.revealRotationY !== undefined) ? spotlight3D.revealRotationY : (spotlight3D.isRevealed ? 0 : Math.PI);
+        spotlight3D.cardMesh.rotation.y = baseRotY + Math.sin(time * 0.7) * 0.08;
         spotlight3D.cardMesh.rotation.x = Math.cos(time * 0.8) * 0.04;
       }
     }
