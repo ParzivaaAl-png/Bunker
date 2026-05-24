@@ -1635,53 +1635,72 @@ p {
   outline: none;
 }
 
-/* BOTTOM HAND ZONE */
-.game-bottom-hand-zone {
-  height: 130px; /* Extremely compact layout space */
+/* FLOATING VOICEMAIL CONTROLS & TIPS */
+.floating-voice-controls {
+  position: fixed;
+  bottom: 25px;
+  left: 25px;
   display: flex;
-  flex-direction: column;
-  padding: 10px 20px;
-  flex-shrink: 0;
-  gap: 5px;
-  position: relative;
-  overflow: visible; /* Let fanned cards overflow the container upward */
-  border: none;
-  background: transparent !important; /* Make sure it's transparent and overrides card-glass if present */
-  box-shadow: none !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-
-.bottom-hand-meta {
-  display: flex;
-  justify-content: space-between;
   align-items: center;
-  flex-shrink: 0;
-  border: 1px solid var(--border-light);
-  background: rgba(10, 15, 30, 0.85); /* Slightly darker for better contrast */
+  gap: 12px;
+  background: rgba(10, 15, 30, 0.8);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  padding: 8px 20px;
-  border-radius: 30px;
-  z-index: 110; /* Float above the cards canvas */
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  padding: 8px 16px;
+  border-radius: 40px;
+  z-index: 130; /* Above cards and sidebars */
+  border: 1px solid var(--border-light);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  transition: var(--transition-smooth);
 }
 
-.bottom-hand-meta .voice-controls {
-  margin-bottom: 0;
-  padding: 2px 8px;
-  background: transparent;
-  border: none;
-}
-
-.bottom-deck-tip {
-  font-size: 0.8rem;
+.floating-voice-controls .mic-status-text {
+  font-size: 0.9rem;
   color: var(--text-secondary);
 }
 
-.bottom-deck-tip i {
+.floating-voice-controls .mic-status-text span {
+  font-weight: bold;
+}
+
+.floating-voice-controls .mic-status-text span.active {
+  color: var(--neon-green);
+  text-shadow: 0 0 5px var(--neon-green-glow);
+}
+
+.floating-voice-controls .mic-status-text span.muted {
+  color: var(--neon-red);
+  text-shadow: 0 0 5px var(--neon-red-glow);
+}
+
+.floating-deck-tip {
+  position: fixed;
+  bottom: 25px;
+  right: 25px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(10, 15, 30, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 8px 16px;
+  border-radius: 40px;
+  z-index: 130; /* Above cards and sidebars */
+  border: 1px solid var(--border-light);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  transition: var(--transition-smooth);
+}
+
+.floating-deck-tip i {
   color: var(--neon-cyan);
-  margin-right: 4px;
+}
+
+/* Hide when game screen is not active */
+body:not(:has(#screen-game.active)) .floating-voice-controls,
+body:not(:has(#screen-game.active)) .floating-deck-tip {
+  display: none !important;
 }
 
 /* Show only when game screen is active */
@@ -1893,11 +1912,16 @@ body:has(#screen-game.active) .my-3d-deck-wrapper {
   .sidebar-body {
     padding: 15px;
   }
-  .game-bottom-hand-zone {
-    height: 110px;
-  }
   .my-3d-deck-wrapper {
-    height: 350px;
+    height: 360px;
+  }
+  .floating-voice-controls {
+    bottom: 15px;
+    left: 15px;
+    padding: 6px 12px;
+  }
+  .floating-deck-tip {
+    display: none !important; /* Hide tip on mobile to save space */
   }
 }
 

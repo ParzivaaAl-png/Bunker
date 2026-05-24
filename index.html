@@ -255,27 +255,8 @@
 
       </div>
 
-      <!-- Bottom Interactive Hand Zone (Always visible at the bottom) -->
-      <footer class="game-bottom-hand-zone">
-        
-        <!-- Voice/Mic status controller -->
-        <div class="bottom-hand-meta">
-          <div class="voice-controls">
-            <button id="btn-toggle-mic" class="btn-circle btn-mic-off" title="Включить/выключить микрофон">
-              <i class="fa-solid fa-microphone-slash"></i>
-            </button>
-            <div class="mic-status-text">
-              Микрофон: <span id="mic-status-label" class="muted">Выключен</span>
-            </div>
-          </div>
-          <div class="bottom-deck-tip">
-            <i class="fa-solid fa-circle-info"></i> Ваше досье. Нажмите на карту для детального рассмотрения.
-          </div>
-        </div>
-
-        <!-- Hidden Fallback Container to keep original game.js logic functioning without breaking references -->
-        <div id="private-characteristics" style="display: none;"></div>
-      </footer>
+      <!-- Hidden Fallback Container to keep original game.js logic functioning without breaking references -->
+      <div id="private-characteristics" style="display: none;"></div>
 
     </div>
   </section>
@@ -346,6 +327,21 @@
   <script type="module" src="cards.js"></script>
   <script type="module" src="deck3d.js"></script>
   <script type="module" src="game.js"></script>
+
+  <!-- Floating Voice/Mic controller in bottom left (Free outside containers) -->
+  <div class="floating-voice-controls">
+    <button id="btn-toggle-mic" class="btn-circle btn-mic-off" title="Включить/выключить микрофон">
+      <i class="fa-solid fa-microphone-slash"></i>
+    </button>
+    <div class="mic-status-text">
+      Микрофон: <span id="mic-status-label" class="muted">Выключен</span>
+    </div>
+  </div>
+
+  <!-- Floating tip in bottom right (Free outside containers) -->
+  <div class="floating-deck-tip">
+    <i class="fa-solid fa-circle-info"></i> Ваше досье. Нажмите на карту для детального рассмотрения.
+  </div>
 
   <!-- Floating 3D Interactive Hand Canvas (Free outside all containers) -->
   <div class="my-3d-deck-wrapper">

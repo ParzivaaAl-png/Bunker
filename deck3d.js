@@ -389,7 +389,7 @@ function update3DDeck(players, myId) {
       // Left to right fanning order along the arc
       const angle = Math.PI / 2 - (idx - (totalCards - 1) / 2) * angleStep;
       const x = Math.cos(angle) * arcRadius;
-      const y = Math.sin(angle) * arcRadius - arcRadius - 0.45; // Shifted down slightly to fit the taller 520px viewport
+      const y = Math.sin(angle) * arcRadius - arcRadius - 0.35; // Elevated slightly higher for containerless float
       const z = 1.2 - Math.abs(idx - (totalCards - 1) / 2) * 0.25; // Arc depth
 
       mesh.position.set(x, y, z);
@@ -714,6 +714,8 @@ function closeCardInspection() {
   const cardMesh = deck3D.inspectedCard;
   if (!cardMesh) return;
 
+  deck3D.inspectedCard = null; // Reset immediately to prevent interface lockups on state syncs
+
   const overlay = document.getElementById("card-inspection-overlay");
   overlay.className = "card-inspection-overlay hidden";
 
@@ -728,10 +730,7 @@ function closeCardInspection() {
       y: cardObj.defaultPos.y,
       z: cardObj.defaultPos.z,
       duration: 0.6,
-      ease: "power2.out",
-      onComplete: () => {
-        deck3D.inspectedCard = null;
-      }
+      ease: "power2.out"
     });
 
     gsap.to(cardMesh.rotation, {
