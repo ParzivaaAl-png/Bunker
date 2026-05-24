@@ -30,6 +30,7 @@ let gameState = {
   nominees: [], // players nominated for expulsion
   defenseIdx: 0, // index of nominee currently speaking
   votingActive: false,
+  fastForwardingTimer: false, // Smooth fast-forwarding countdown animation when all players voted
   logs: []
 };
 
@@ -315,6 +316,8 @@ function handleClientMessage(clientPeerId, msg, conn) {
     // We broadcast the updated player list and the clients will handle the WebRTC calling dynamically.
 
   } else if (msg.type === "SUBMIT_VOTE") {
+    if (gameState.fastForwardingTimer) return; // Block during countdown
+    
     const voter = gameState.players.find(p => p.id === clientPeerId);
     if (voter && voter.isAlive && (gameState.status.startsWith("voting") || gameState.status === "voting_final")) {
       voter.vote = msg.candidateId;
@@ -324,6 +327,7 @@ function handleClientMessage(clientPeerId, msg, conn) {
         addLocalLog(`Игрок ${voter.nickname} отменил свой голос.`, "system");
       }
       broadcastState();
+      checkAllVoted();
     }
   } else if (msg.type === "MIC_STATUS") {
     const player = gameState.players.find(p => p.id === clientPeerId);
@@ -386,6 +390,10 @@ function handleHostMessage(msg) {
       const m = Math.floor(gameState.activeSpeakerTime / 60).toString().padStart(2, '0');
       const s = (gameState.activeSpeakerTime % 60).toString().padStart(2, '0');
       timerLabel.textContent = `${m}:${s}`;
+    }
+  } else if (msg.type === "EXPULSION_ANIMATION") {
+    if (window.playEpicExpulsionAnimation) {
+      window.playEpicExpulsionAnimation(msg.nickname);
     }
   } else if (msg.type === "ADD_LOG") {
     if (!gameState.logs) gameState.logs = [];
@@ -782,7 +790,9 @@ function nextSpeakerOrPhase() {
       gameState.status = "voting_final";
       gameState.activeSpeakerId = "";
       gameState.players.forEach(p => p.vote = null); // Clear previous votes
+      gameState.activeSpeakerTime = 30; // 30 seconds for final vote
       addLocalLog(`СИСТЕМА: Выступления окончены. Начинается финальное голосование между номинантами!`, "system");
+      startTimer();
       broadcastState();
     }
   }
@@ -852,7 +862,9 @@ function startVotingPhase(votingNum) {
   gameState.status = `voting_${votingNum}`;
   gameState.activeSpeakerId = "";
   gameState.players.forEach(p => p.vote = null); // reset votes
+  gameState.activeSpeakerTime = 45; // 45 seconds to vote
   addLocalLog(`🗳️ Начинается голосование №${votingNum}! Обсуждайте открыто. Выберите цель в панели справа.`, "system");
+  startTimer();
 }
 
 function finishVoting() {
@@ -949,6 +961,8 @@ function expelPlayer(playerId) {
     player.isAlive = false;
     addLocalLog(`☠️ Игрок ${player.nickname} изгнан из Убежища и остается погибать в лесу!`, "vote");
     
+    let nicknames = [player.nickname];
+
     // In case of Voting 5 (last round), we expel 2 players.
     // If we need to expel a 2nd player and this is the first kick:
     const votePhase = gameState.status;
@@ -960,11 +974,33 @@ function expelPlayer(playerId) {
       const p2 = gameState.players.find(p => p.id === secondExpelledId);
       if (p2) {
         p2.isAlive = false;
+        nicknames.push(p2.nickname);
         addLocalLog(`☠️ Также изгоняется второй игрок: ${p2.nickname}!`, "vote");
       }
     }
 
-    advanceAfterExpulsion();
+    const nickStr = nicknames.join(" и ");
+
+    // Broadcast the cinema animation event to all active clients
+    for (const pid in clientConns) {
+      const conn = clientConns[pid];
+      if (conn && conn.open) {
+        conn.send({
+          type: "EXPULSION_ANIMATION",
+          nickname: nickStr
+        });
+      }
+    }
+
+    // Play locally on Host
+    if (window.playEpicExpulsionAnimation) {
+      window.playEpicExpulsionAnimation(nickStr);
+    }
+
+    // Defer game state updates by 3.2 seconds to allow the full cinematic animation to play
+    setTimeout(() => {
+      advanceAfterExpulsion();
+    }, 3200);
   }
 }
 
@@ -1052,7 +1088,7 @@ function startTimer() {
   gameTimerInterval = setInterval(() => {
     if (!isHost) return;
 
-    if (gameState.status.startsWith("discussion") || gameState.status === "defense" || gameState.status.startsWith("global_discussion")) {
+    if (gameState.status.startsWith("discussion") || gameState.status === "defense" || gameState.status.startsWith("global_discussion") || gameState.status.startsWith("voting")) {
       if (gameState.activeSpeakerTime > 0) {
         gameState.activeSpeakerTime--;
         
@@ -1066,6 +1102,10 @@ function startTimer() {
           const gNum = parseInt(gameState.status.split("_")[2]);
           startVotingPhase(gNum);
           broadcastState();
+        } else if (gameState.status === "voting_final") {
+          finishFinalVoting();
+        } else if (gameState.status.startsWith("voting")) {
+          finishVoting();
         }
       }
     }
@@ -1195,7 +1235,7 @@ function syncGameUI() {
     const timerBox = document.getElementById("timer-box");
     const timerLabel = document.getElementById("game-timer");
     
-    if (gameState.status.startsWith("discussion") || gameState.status === "defense" || gameState.status.startsWith("global_discussion")) {
+    if (gameState.status.startsWith("discussion") || gameState.status === "defense" || gameState.status.startsWith("global_discussion") || gameState.status.startsWith("voting")) {
       timerBox.className = gameState.activeSpeakerTime <= 10 ? "timer-box warning" : "timer-box";
       const m = Math.floor(gameState.activeSpeakerTime / 60).toString().padStart(2, '0');
       const s = (gameState.activeSpeakerTime % 60).toString().padStart(2, '0');
@@ -1345,6 +1385,14 @@ function updateLobbyUI() {
 function renderPlayerGrid() {
   const grid = document.getElementById("players-grid");
 
+  // Count current votes against players
+  const voteCounts = {};
+  gameState.players.forEach(pl => {
+    if (pl.isAlive && pl.vote) {
+      voteCounts[pl.vote] = (voteCounts[pl.vote] || 0) + 1;
+    }
+  });
+
   // Set counter labels
   const aliveCount = gameState.players.filter(p => p.isAlive).length;
   document.getElementById("game-alive-count").textContent = aliveCount;
@@ -1448,12 +1496,21 @@ function renderPlayerGrid() {
       `;
     }
 
+    const votes = voteCounts[p.id] || 0;
+    let voteBadgeHtml = "";
+    if (p.isAlive && (gameState.status.startsWith("voting") || gameState.status === "voting_final" || gameState.status === "defense")) {
+      if (votes > 0) {
+        voteBadgeHtml = `<div class="player-card-vote-badge" title="Голосов против игрока: ${votes}"><i class="fa-solid fa-check-to-slot"></i> ${votes}</div>`;
+      }
+    }
+
     const innerHTML = `
       <div class="player-card-header">
         <div class="player-info-meta">
           <div class="player-avatar">${p.nickname[0].toUpperCase()}</div>
           <span class="player-name">${p.nickname} ${hostLabel} ${immunityLabel}</span>
         </div>
+        ${voteBadgeHtml}
         ${micIcon}
       </div>
       <div class="player-revealed-list">
@@ -1589,12 +1646,23 @@ function renderVotingControls() {
     return true;
   });
 
+  // Count current votes against candidates
+  const voteCounts = {};
+  gameState.players.forEach(p => {
+    if (p.isAlive && p.vote) {
+      voteCounts[p.vote] = (voteCounts[p.vote] || 0) + 1;
+    }
+  });
+
   candidates.forEach(c => {
+    const votes = voteCounts[c.id] || 0;
+    const voteBadge = votes > 0 ? ` <span class="vote-count-badge">${votes}</span>` : "";
+
     // 1. Sidebar Button
     const btn = document.createElement("button");
     btn.className = "btn-vote";
     if (myPlayer.vote === c.id) btn.classList.add("selected");
-    btn.textContent = c.nickname;
+    btn.innerHTML = `${c.nickname}${voteBadge}`;
     btn.onclick = () => submitVote(c.id);
     sidebarContainer.appendChild(btn);
 
@@ -1602,7 +1670,7 @@ function renderVotingControls() {
     const centerBtn = document.createElement("button");
     centerBtn.className = "btn-vote-center";
     if (myPlayer.vote === c.id) centerBtn.classList.add("selected");
-    centerBtn.innerHTML = `<i class="fa-solid fa-user-xmark"></i> ${c.nickname}`;
+    centerBtn.innerHTML = `<i class="fa-solid fa-user-xmark"></i> ${c.nickname}${voteBadge}`;
     centerBtn.onclick = () => submitVote(c.id);
     if (centerContainer) centerContainer.appendChild(centerBtn);
   });
@@ -1710,6 +1778,8 @@ function playMySpecial(index) {
 }
 
 function submitVote(candidateId) {
+  if (gameState.fastForwardingTimer) return; // Block during countdown
+  
   const myPlayer = gameState.players.find(p => p.id === myPeerId);
   if (!myPlayer) return;
 
@@ -1723,12 +1793,56 @@ function submitVote(candidateId) {
       addLocalLog(`Игрок ${myPlayer.nickname} отменил свой голос.`, "system");
     }
     broadcastState();
+    checkAllVoted();
   } else {
     sendToHost({
       type: "SUBMIT_VOTE",
       candidateId: targetVote
     });
   }
+}
+
+// Check if all alive players have voted to fast-forward the timer
+function checkAllVoted() {
+  if (!isHost) return;
+  if (gameState.fastForwardingTimer) return;
+
+  const alivePlayers = gameState.players.filter(p => p.isAlive);
+  const allVoted = alivePlayers.every(p => p.vote !== null);
+
+  if (allVoted && alivePlayers.length > 0) {
+    triggerFastForwardTimer();
+  }
+}
+
+// Rapid exponential countdown timer when everyone voted
+function triggerFastForwardTimer() {
+  if (!isHost) return;
+  if (gameState.fastForwardingTimer) return;
+  
+  gameState.fastForwardingTimer = true;
+  clearInterval(gameTimerInterval);
+  
+  addLocalLog("⚡ Все выжившие сделали свой выбор! Сведение времени...", "system");
+  
+  let ffInterval = setInterval(() => {
+    if (gameState.activeSpeakerTime > 0) {
+      gameState.activeSpeakerTime = Math.max(0, gameState.activeSpeakerTime - Math.ceil(gameState.activeSpeakerTime / 6) - 1);
+      broadcastTimer();
+    } else {
+      clearInterval(ffInterval);
+      gameState.fastForwardingTimer = false;
+      
+      // Resume standard timer and advance phase
+      startTimer();
+      
+      if (gameState.status === "voting_final") {
+        finishFinalVoting();
+      } else {
+        finishVoting();
+      }
+    }
+  }, 75);
 }
 
 function toggleMic() {
@@ -2076,6 +2190,96 @@ window.toggleRightSidebar = toggleRightSidebar;
 window.toggleApocalypseOverlay = toggleApocalypseOverlay;
 window.switchSidebarTab = switchSidebarTab;
 
+function playEpicExpulsionAnimation(nickname) {
+  const overlay = document.getElementById("expulsion-cinema-overlay");
+  const nameEl = document.getElementById("cinema-victim-name");
+  const avatarEl = document.getElementById("cinema-victim-avatar");
+  const cardContainer = overlay ? overlay.querySelector(".cinema-card-container") : null;
+  const mainBoard = document.querySelector(".game-layout");
+  
+  if (!overlay || !nameEl || !avatarEl || !cardContainer) return;
+  
+  // Set details
+  nameEl.textContent = nickname;
+  avatarEl.textContent = nickname ? nickname[0].toUpperCase() : "?";
+  
+  // Kill active GSAP processes
+  gsap.killTweensOf([overlay, cardContainer, mainBoard]);
+  
+  // Create cinematic timeline
+  const tl = gsap.timeline({
+    onComplete: () => {
+      overlay.classList.remove("active");
+      if (mainBoard) {
+        gsap.set(mainBoard, { clearProps: "transform,filter" });
+      }
+    }
+  });
+  
+  // Trigger overlay visibility
+  overlay.classList.add("active");
+  
+  // Set defaults
+  gsap.set(overlay, { opacity: 0 });
+  gsap.set(cardContainer, { scale: 0, rotation: -40, opacity: 0 });
+  
+  // 1. Alert light fade-in and elastic pop of candidate card
+  tl.to(overlay, { opacity: 1, duration: 0.35, ease: "power2.out" });
+  tl.to(cardContainer, { 
+    scale: 1.05, 
+    rotation: 0, 
+    opacity: 1, 
+    duration: 0.7, 
+    ease: "elastic.out(1, 0.75)" 
+  }, "-=0.1");
+  
+  // 2. High-speed chromatic screen shake vibration
+  const shakeIntensity = 12;
+  const shakeCount = 18;
+  for (let i = 0; i < shakeCount; i++) {
+    const rx = (Math.random() - 0.5) * shakeIntensity;
+    const ry = (Math.random() - 0.5) * shakeIntensity;
+    const rrot = (Math.random() - 0.5) * 3.5;
+    
+    tl.to(mainBoard, { 
+      x: rx, 
+      y: ry, 
+      rotation: rrot,
+      filter: `hue-rotate(${(Math.random() - 0.5) * 20}deg) saturate(${1.3 + Math.random() * 0.5})`,
+      duration: 0.08, 
+      ease: "none" 
+    });
+    
+    tl.to(cardContainer, {
+      x: -rx * 0.35,
+      y: -ry * 0.35,
+      skewX: rrot * 0.8,
+      skewY: rrot * 0.8,
+      duration: 0.08,
+      ease: "none"
+    }, "<");
+  }
+  
+  // Reset vibrations
+  tl.to([mainBoard, cardContainer], { x: 0, y: 0, rotation: 0, skewX: 0, skewY: 0, filter: "none", duration: 0.15, ease: "power2.out" });
+  
+  // 3. Airlock opens! Spin decompression suction out
+  tl.to(cardContainer, {
+    rotation: 1440,
+    scale: 0.01,
+    opacity: 0,
+    duration: 0.9,
+    ease: "back.in(1.8)"
+  }, "+=0.15");
+  
+  // 4. Fade movie screen out
+  tl.to(overlay, {
+    opacity: 0,
+    duration: 0.35,
+    ease: "power2.inOut"
+  }, "-=0.1");
+}
+
 function skipMyTurn() {
   if (isHost) {
     nextSpeakerOrPhase();
@@ -2098,3 +2302,4 @@ window.adminChangeProfession = adminChangeProfession;
 window.switchControlTab = switchControlTab;
 window.getRoundCardType = getRoundCardType;
 window.skipMyTurn = skipMyTurn;
+window.playEpicExpulsionAnimation = playEpicExpulsionAnimation;

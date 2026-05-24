@@ -2135,4 +2135,246 @@ body:has(#screen-game.active) .my-3d-deck-wrapper {
   display: none !important;
 }
 
+/* =============================================================================
+   VOTE COUNTERS & EXPULSION CINEMA OVERLAY STYLING
+   ============================================================================= */
+
+/* Vote badge on central and sidebar voting buttons */
+.vote-count-badge {
+  background: var(--neon-red);
+  color: #fff;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-left: auto;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 0 10px rgba(255, 0, 0, 0.6);
+  animation: badgePulse 1.5s infinite alternate;
+}
+
+/* Vote badge inside player grid cards */
+.player-card-vote-badge {
+  position: absolute;
+  top: 10px;
+  right: 48px;
+  background: rgba(244, 67, 54, 0.3);
+  color: #fff;
+  border: 1px solid var(--neon-red);
+  box-shadow: 0 0 15px var(--neon-red-glow);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 15;
+  animation: badgePulse 1.5s infinite alternate;
+}
+
+@keyframes badgePulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 5px rgba(244, 67, 54, 0.4);
+  }
+  100% {
+    transform: scale(1.05);
+    box-shadow: 0 0 15px rgba(244, 67, 54, 0.8);
+  }
+}
+
+/* Fullscreen Expulsion Cinema Overlay */
+.expulsion-cinema-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: radial-gradient(circle at center, rgba(12, 6, 6, 0.96) 0%, rgba(2, 1, 1, 0.99) 100%);
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.expulsion-cinema-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.cinema-hazard-tape {
+  width: 100%;
+  height: 55px;
+  background: repeating-linear-gradient(
+    -45deg,
+    #ffb300,
+    #ffb300 20px,
+    #000 20px,
+    #000 40px
+  );
+  border-top: 4px solid var(--neon-orange);
+  border-bottom: 4px solid var(--neon-orange);
+  box-shadow: 0 0 35px rgba(255, 179, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  z-index: 10;
+}
+
+.cinema-hazard-tape.top {
+  border-top: none;
+}
+
+.cinema-hazard-tape.bottom {
+  border-bottom: none;
+}
+
+.hazard-stripe-text {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  font-size: 1.15rem;
+  color: #fff;
+  text-shadow: 2px 2px 0px #000, 0 0 10px rgba(255, 179, 0, 0.8);
+  letter-spacing: 6px;
+  animation: scrollTapeText 20s linear infinite;
+  white-space: nowrap;
+}
+
+@keyframes scrollTapeText {
+  0% { transform: translateX(30%); }
+  100% { transform: translateX(-30%); }
+}
+
+.cinema-red-alarm {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(244, 67, 54, 0.18);
+  pointer-events: none;
+  z-index: 2;
+  animation: cinemaAlarmFlash 0.7s ease infinite alternate;
+}
+
+@keyframes cinemaAlarmFlash {
+  0% { background: rgba(244, 67, 54, 0.05); }
+  100% { background: rgba(244, 67, 54, 0.25); }
+}
+
+.cinema-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  width: 100%;
+  z-index: 5;
+}
+
+.biohazard-logo-bg {
+  position: absolute;
+  font-size: 32rem;
+  color: rgba(244, 67, 54, 0.035);
+  z-index: -1;
+  animation: spinBiohazard 25s linear infinite;
+  text-shadow: 0 0 100px rgba(244, 67, 54, 0.05);
+}
+
+@keyframes spinBiohazard {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.cinema-card-container {
+  background: rgba(18, 25, 41, 0.45);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 2px solid rgba(244, 67, 54, 0.35);
+  box-shadow: 0 0 70px rgba(244, 67, 54, 0.25), inset 0 0 30px rgba(244, 67, 54, 0.12);
+  border-radius: 20px;
+  padding: 45px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  width: 320px;
+  position: relative;
+  overflow: hidden;
+  transform: scale(0);
+}
+
+.cinema-victim-avatar {
+  width: 90px;
+  height: 90px;
+  background: linear-gradient(135deg, var(--neon-red) 0%, #1a0505 100%);
+  border: 3px solid var(--neon-red);
+  box-shadow: 0 0 25px var(--neon-red-glow);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.8rem;
+  font-weight: bold;
+  font-family: 'Orbitron', sans-serif;
+  color: #fff;
+  text-shadow: 0 0 15px rgba(255, 255, 255, 0.8);
+}
+
+.cinema-victim-card {
+  text-align: center;
+  width: 100%;
+}
+
+.cinema-victim-name {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 2.1rem;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 0 15px rgba(255, 255, 255, 0.4), 0 0 10px var(--neon-red);
+  margin-bottom: 8px;
+  letter-spacing: 2px;
+  word-wrap: break-word;
+}
+
+.cinema-victim-status {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--neon-red);
+  text-transform: uppercase;
+  letter-spacing: 4px;
+  text-shadow: 0 0 5px var(--neon-red-glow);
+}
+
+.cinema-warning-message {
+  margin-top: 35px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 6px;
+  text-shadow: 0 0 20px rgba(244, 67, 54, 0.5);
+  text-transform: uppercase;
+  animation: pulseWarning 0.9s infinite alternate;
+}
+
+@keyframes pulseWarning {
+  0% { transform: scale(0.96); opacity: 0.75; color: #ff5252; }
+  100% { transform: scale(1.04); opacity: 1; color: #ffffff; }
+}
+
+
 
