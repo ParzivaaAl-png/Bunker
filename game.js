@@ -86,6 +86,7 @@ function initPeer(role, nickname, roomCode) {
 
   peer.on("open", (id) => {
     console.log("Connected to PeerJS signaling server as:", id);
+    myPeerId = id; // Ensure myPeerId matches the lowercase signaling server registered ID!
     statusEl.innerHTML = `<span class="status-dot online"></span> Подключено. Код: ${roomCode}`;
     
     // Auto request microphone access
