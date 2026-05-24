@@ -1066,15 +1066,32 @@ function updateLobbyUI() {
   const startBtn = document.getElementById("btn-start-game");
 
   pCountEl.textContent = gameState.players.length;
-  listEl.innerHTML = "";
 
+  const currentIds = gameState.players.map(p => p.id);
+  const existingItems = Array.from(listEl.children);
+
+  // Remove players who left
+  existingItems.forEach(item => {
+    const id = item.getAttribute("data-player-id");
+    if (!currentIds.includes(id)) {
+      item.remove();
+    }
+  });
+
+  // Reconcile and append players
   gameState.players.forEach(p => {
-    const li = document.createElement("li");
+    let li = Array.from(listEl.children).find(child => child.getAttribute("data-player-id") === p.id);
+    let isNew = false;
+    if (!li) {
+      li = document.createElement("li");
+      li.setAttribute("data-player-id", p.id);
+      isNew = true;
+    }
     
     let adminCrown = p.isHost ? `<i class="fa-solid fa-crown admin-crown" title="Администратор"></i>` : "";
     let statusLabel = p.id === myPeerId ? `<span class="badge">Вы</span>` : "";
 
-    li.innerHTML = `
+    const innerHTML = `
       <div class="player-name-wrapper">
         <i class="fa-solid fa-user-astronaut"></i>
         <span class="player-name">${p.nickname}</span>
@@ -1082,7 +1099,14 @@ function updateLobbyUI() {
       </div>
       ${statusLabel}
     `;
-    listEl.appendChild(li);
+
+    if (li.innerHTML !== innerHTML) {
+      li.innerHTML = innerHTML;
+    }
+
+    if (isNew) {
+      listEl.appendChild(li);
+    }
   });
 
   // Enable/disable start button for admin
@@ -1093,19 +1117,40 @@ function updateLobbyUI() {
 
 function renderPlayerGrid() {
   const grid = document.getElementById("players-grid");
-  grid.innerHTML = "";
 
   // Set counter labels
   const aliveCount = gameState.players.filter(p => p.isAlive).length;
   document.getElementById("game-alive-count").textContent = aliveCount;
   document.getElementById("game-total-count").textContent = gameState.players.length;
 
+  const currentIds = gameState.players.map(p => p.id);
+  const existingItems = Array.from(grid.children);
+
+  // Remove players who left
+  existingItems.forEach(item => {
+    const id = item.getAttribute("data-player-id");
+    if (!currentIds.includes(id)) {
+      item.remove();
+    }
+  });
+
   gameState.players.forEach(p => {
-    const cardEl = document.createElement("div");
-    cardEl.className = "player-card";
-    
-    if (p.id === gameState.activeSpeakerId) cardEl.classList.add("active-speaker");
-    if (!p.isAlive) cardEl.classList.add("expelled");
+    let cardEl = Array.from(grid.children).find(child => child.getAttribute("data-player-id") === p.id);
+    let isNew = false;
+    if (!cardEl) {
+      cardEl = document.createElement("div");
+      cardEl.setAttribute("data-player-id", p.id);
+      isNew = true;
+    }
+
+    // Determine the desired classes
+    let className = "player-card";
+    if (p.id === gameState.activeSpeakerId) className += " active-speaker";
+    if (!p.isAlive) className += " expelled";
+
+    if (cardEl.className !== className) {
+      cardEl.className = className;
+    }
 
     // Mic Status Icon
     let micIcon = `<i class="fa-solid fa-microphone-slash player-mic-status muted" title="Микрофон выключен"></i>`;
@@ -1176,7 +1221,7 @@ function renderPlayerGrid() {
       `;
     }
 
-    cardEl.innerHTML = `
+    const innerHTML = `
       <div class="player-card-header">
         <div class="player-info-meta">
           <div class="player-avatar">${p.nickname[0].toUpperCase()}</div>
@@ -1191,7 +1236,13 @@ function renderPlayerGrid() {
       ${adminToolsHtml}
     `;
 
-    grid.appendChild(cardEl);
+    if (cardEl.innerHTML !== innerHTML) {
+      cardEl.innerHTML = innerHTML;
+    }
+
+    if (isNew) {
+      grid.appendChild(cardEl);
+    }
   });
 }
 
