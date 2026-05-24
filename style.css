@@ -1940,9 +1940,7 @@ body:has(#screen-game.active) .my-3d-deck-wrapper {
   .sidebar-body {
     padding: 15px;
   }
-  .my-3d-deck-wrapper {
-    height: 360px;
-  }
+
   .floating-voice-controls {
     bottom: 15px;
     left: 15px;

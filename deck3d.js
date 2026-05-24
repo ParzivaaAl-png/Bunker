@@ -599,8 +599,8 @@ function update3DDeck(players, myId) {
     
     // Curved layout math along an arc: perfectly tailored for the container-free full viewport to avoid clashing overlap!
     const isMobile = (window.innerWidth < 600);
-    const arcRadius = isMobile ? 8.0 : 8.5;
-    const angleStep = isMobile ? 0.055 : 0.08; // Super compact and cozy on mobile screens!
+    const arcRadius = isMobile ? 7.2 : 8.5;
+    const angleStep = isMobile ? 0.05 : 0.08; // Super compact and cozy on mobile screens!
 
     cardCategories.forEach((cat, idx) => {
       const val = myPlayer.cards[cat] || "Скрытая характеристика";
@@ -616,8 +616,10 @@ function update3DDeck(players, myId) {
       const frontTex = new THREE.CanvasTexture(frontCanvas);
       const backTex = new THREE.CanvasTexture(backCanvas);
 
-      // Highly refined smaller playing card sizes for perfect non-clashing visual representation (width = 1.2, height = 1.9)
-      const geom = new THREE.BoxGeometry(1.2, 1.9, 0.04);
+      // Highly refined smaller playing card sizes for perfect non-clashing visual representation
+      const cardW = isMobile ? 1.0 : 1.2;
+      const cardH = isMobile ? 1.6 : 1.9;
+      const geom = new THREE.BoxGeometry(cardW, cardH, 0.04);
       
       // Materials for 6 faces: Right, Left, Top, Bottom, Front (index 4), Back (index 5)
       const sidesMat = new THREE.MeshStandardMaterial({ color: 0x101424, roughness: 0.8 });
