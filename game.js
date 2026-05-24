@@ -1,5 +1,9 @@
 // BUNKER Game Logic Engine
-const CARD_DATABASE = window.CARD_DATABASE;
+const CARD_DATABASE = new Proxy({}, {
+  get(target, prop) {
+    return window.CARD_DATABASE ? window.CARD_DATABASE[prop] : undefined;
+  }
+});
 
 // Global State
 let peer = null;

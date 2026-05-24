@@ -348,8 +348,7 @@ const CARD_DATABASE = {
 };
 
 // Экспортируем базу данных для использования в других скриптах
+window.CARD_DATABASE = CARD_DATABASE;
 if (typeof module !== "undefined" && module.exports) {
   module.exports = CARD_DATABASE;
-} else {
-  window.CARD_DATABASE = CARD_DATABASE;
 }
