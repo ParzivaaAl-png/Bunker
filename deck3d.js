@@ -601,8 +601,9 @@ function update3DDeck(players, myId) {
     
     // Curved layout math along an arc: perfectly tailored for the container-free full viewport to avoid clashing overlap!
     const isMobile = (window.innerWidth < 600);
-    const arcRadius = isMobile ? 7.2 : 8.5;
-    const angleStep = isMobile ? 0.04 : 0.08; // Super compact and cozy on mobile screens!
+    const arcRadius = isMobile ? 6.8 : 8.5;
+    const angleStep = isMobile ? 0.055 : 0.08; // Super compact and cozy on mobile screens!
+
 
 
     cardCategories.forEach((cat, idx) => {
@@ -637,9 +638,11 @@ function update3DDeck(players, myId) {
       // Left to right fanning order along the arc
       const angle = Math.PI / 2 - (idx - (totalCards - 1) / 2) * angleStep;
       const x = Math.cos(angle) * arcRadius;
-      const yAnchor = isMobile ? -2.55 : -2.80; // Raise cards slightly higher on mobile
+      const yAnchor = isMobile ? -2.30 : -2.80; // Raise cards slightly higher on mobile
       const y = Math.sin(angle) * arcRadius - arcRadius + yAnchor;
-      const z = 0.5 + idx * 0.08; // Beautiful sequential left-to-right fanning layering depth
+      const zStep = isMobile ? 0.015 : 0.08; // Symmetrical depth layering on mobile to stop perspective dipping
+      const z = 0.5 + idx * zStep;
+
 
 
       mesh.position.set(x, y, z);
