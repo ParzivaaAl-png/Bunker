@@ -279,7 +279,7 @@ function init3D() {
     spotlight3D.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
     spotlight3D.camera = new THREE.PerspectiveCamera(35, w / h, 0.1, 100);
-    spotlight3D.camera.position.set(0, 0, 11);
+    spotlight3D.camera.position.set(0, 0, 9.2); // Brought camera slightly closer to see cards much clearer
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
     spotlight3D.scene.add(ambientLight);
@@ -538,8 +538,8 @@ function update3DSpotlight(activeSpeakerId, players, currentRound, activeSpeaker
   const frontTex = new THREE.CanvasTexture(frontCanvas);
   const backTex = new THREE.CanvasTexture(backCanvas);
 
-  // Sleek spotlight physical dimensions (width = 2.4, height = 3.7)
-  const geom = new THREE.BoxGeometry(2.4, 3.7, 0.05);
+  // Scaled up spotlight physical dimensions (width = 2.9, height = 4.4) for crystal clear reading!
+  const geom = new THREE.BoxGeometry(2.9, 4.4, 0.05);
   const sidesMat = new THREE.MeshStandardMaterial({ color: 0x12162a, roughness: 0.8 });
   const materials = [
     sidesMat, sidesMat, sidesMat, sidesMat,
