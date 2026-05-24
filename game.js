@@ -1,4 +1,5 @@
 // BUNKER Game Logic Engine
+const CARD_DATABASE = window.CARD_DATABASE;
 
 // Global State
 let peer = null;
@@ -1779,3 +1780,14 @@ window.toggleLeftSidebar = toggleLeftSidebar;
 window.toggleRightSidebar = toggleRightSidebar;
 window.toggleApocalypseOverlay = toggleApocalypseOverlay;
 window.switchSidebarTab = switchSidebarTab;
+
+// Bind inline HTML event handlers to window (required for Vite type="module" bundling)
+window.hideNotification = hideNotification;
+window.revealMyCard = revealMyCard;
+window.playMySpecial = playMySpecial;
+window.submitVote = submitVote;
+window.togglePlayerAlive = togglePlayerAlive;
+window.togglePlayerImmunity = togglePlayerImmunity;
+window.adminRevealAll = adminRevealAll;
+window.adminChangeProfession = adminChangeProfession;
+window.switchControlTab = switchControlTab;
