@@ -1795,3 +1795,4 @@ window.togglePlayerImmunity = togglePlayerImmunity;
 window.adminRevealAll = adminRevealAll;
 window.adminChangeProfession = adminChangeProfession;
 window.switchControlTab = switchControlTab;
+window.getRoundCardType = getRoundCardType;

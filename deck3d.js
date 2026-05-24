@@ -239,7 +239,7 @@ function init3D() {
 
     // Camera setup
     deck3D.camera = new THREE.PerspectiveCamera(40, deck3D.width / deck3D.height, 0.1, 100);
-    deck3D.camera.position.set(0, -0.2, 8.5); // Shifted slightly down and closer to enlarge cards
+    deck3D.camera.position.set(0, -0.65, 6.8); // Shifted down and extremely close for huge cards fanning
 
     // Lighting
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
@@ -249,9 +249,9 @@ function init3D() {
     dirLight.position.set(5, 5, 10);
     deck3D.scene.add(dirLight);
 
-    // Event listener for raycasting
-    deckCanvas.addEventListener("mousemove", onDeckMouseMove);
-    deckCanvas.addEventListener("click", onDeckMouseClick);
+    // Event listener for raycasting on window instead of canvas so pointer-events: none works
+    window.addEventListener("mousemove", onDeckMouseMove);
+    window.addEventListener("click", onDeckMouseClick);
   }
 
   // B. Spotlight Active Speaker 3D Card
@@ -358,8 +358,8 @@ function update3DDeck(players, myId) {
   const totalCards = cardCategories.length;
   
     // Curved layout math along an arc
-    const arcRadius = 9.0;
-    const angleStep = 0.14; // Distance between cards
+    const arcRadius = 7.5;
+    const angleStep = 0.16; // Distance between cards
 
     cardCategories.forEach((cat, idx) => {
       const val = myPlayer.cards[cat] || "Скрытая характеристика";
@@ -373,11 +373,11 @@ function update3DDeck(players, myId) {
       const frontTex = new THREE.CanvasTexture(frontCanvas);
       const backTex = new THREE.CanvasTexture(backCanvas);
 
-      // Slightly larger Box Geometry representation (width = 2.3, height = 3.5)
-      const geom = new THREE.BoxGeometry(2.3, 3.5, 0.05);
+      // Standard-sized large playing cards (width = 2.6, height = 4.0)
+      const geom = new THREE.BoxGeometry(2.6, 4.0, 0.05);
       
       // Materials for 6 faces: Right, Left, Top, Bottom, Front (index 4), Back (index 5)
-      const sidesMat = new THREE.MeshPhongMaterial({ color: 0x101424, roughness: 0.8 });
+      const sidesMat = new THREE.MeshStandardMaterial({ color: 0x101424, roughness: 0.8 });
       const materials = [
         sidesMat, sidesMat, sidesMat, sidesMat,
         new THREE.MeshPhongMaterial({ map: frontTex, transparent: true }), // Front Face
@@ -389,8 +389,8 @@ function update3DDeck(players, myId) {
       // Left to right fanning order along the arc
       const angle = Math.PI / 2 - (idx - (totalCards - 1) / 2) * angleStep;
       const x = Math.cos(angle) * arcRadius;
-      const y = Math.sin(angle) * arcRadius - arcRadius + 0.6; // Perfect vertical centering
-      const z = 1.0 - Math.abs(idx - (totalCards - 1) / 2) * 0.2; // Arc depth
+      const y = Math.sin(angle) * arcRadius - arcRadius + 0.1; // Centered, overlapping upward fanned curve
+      const z = 1.2 - Math.abs(idx - (totalCards - 1) / 2) * 0.25; // Arc depth
 
       mesh.position.set(x, y, z);
       
@@ -491,7 +491,7 @@ function update3DSpotlight(activeSpeakerId, players, currentRound) {
   const backTex = new THREE.CanvasTexture(backCanvas);
 
   const geom = new THREE.BoxGeometry(3.0, 4.6, 0.05);
-  const sidesMat = new THREE.MeshPhongMaterial({ color: 0x12162a, roughness: 0.8 });
+  const sidesMat = new THREE.MeshStandardMaterial({ color: 0x12162a, roughness: 0.8 });
   const materials = [
     sidesMat, sidesMat, sidesMat, sidesMat,
     new THREE.MeshPhongMaterial({ map: frontTex, transparent: true }), // Front Face
@@ -531,6 +531,14 @@ function update3DSpotlight(activeSpeakerId, players, currentRound) {
 
 function onDeckMouseMove(event) {
   if (!deck3D.scene || deck3D.inspectedCard) return;
+
+  // Only process if the game screen is active and no modal/overlay is open
+  const gameScreen = document.getElementById("screen-game");
+  if (!gameScreen || !gameScreen.classList.contains("active")) return;
+  const inspectOverlay = document.getElementById("card-inspection-overlay");
+  if (inspectOverlay && !inspectOverlay.classList.contains("hidden")) return;
+  const apocalypseOverlay = document.getElementById("apocalypse-overlay");
+  if (apocalypseOverlay && !apocalypseOverlay.classList.contains("hidden")) return;
 
   const rect = deck3D.renderer.domElement.getBoundingClientRect();
   deck3D.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -607,6 +615,14 @@ function resetCardHover(cardMesh) {
 
 function onDeckMouseClick(event) {
   if (!deck3D.scene || deck3D.inspectedCard) return;
+
+  // Only process if the game screen is active and no modal/overlay is open
+  const gameScreen = document.getElementById("screen-game");
+  if (!gameScreen || !gameScreen.classList.contains("active")) return;
+  const inspectOverlay = document.getElementById("card-inspection-overlay");
+  if (inspectOverlay && !inspectOverlay.classList.contains("hidden")) return;
+  const apocalypseOverlay = document.getElementById("apocalypse-overlay");
+  if (apocalypseOverlay && !apocalypseOverlay.classList.contains("hidden")) return;
 
   const rect = deck3D.renderer.domElement.getBoundingClientRect();
   deck3D.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;

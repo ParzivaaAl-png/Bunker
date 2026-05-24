@@ -1633,15 +1633,19 @@ p {
 
 /* BOTTOM HAND ZONE */
 .game-bottom-hand-zone {
-  height: 230px;
+  height: 130px; /* Extremely compact layout space */
   display: flex;
   flex-direction: column;
-  padding: 10px 15px;
+  padding: 10px 20px;
   flex-shrink: 0;
   gap: 5px;
   position: relative;
-  overflow: hidden;
-  border: 1px solid var(--border-light);
+  overflow: visible; /* Let fanned cards overflow the container upward */
+  border: none;
+  background: transparent !important; /* Make sure it's transparent and overrides card-glass if present */
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 .bottom-hand-meta {
@@ -1649,9 +1653,14 @@ p {
   justify-content: space-between;
   align-items: center;
   flex-shrink: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-  padding-bottom: 4px;
-  z-index: 10;
+  border: 1px solid var(--border-light);
+  background: rgba(10, 15, 30, 0.85); /* Slightly darker for better contrast */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 8px 20px;
+  border-radius: 30px;
+  z-index: 110; /* Float above the cards canvas */
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
 }
 
 .bottom-hand-meta .voice-controls {
@@ -1662,8 +1671,8 @@ p {
 }
 
 .bottom-deck-tip {
-  font-size: 0.75rem;
-  color: var(--text-muted);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
 }
 
 .bottom-deck-tip i {
@@ -1672,19 +1681,23 @@ p {
 }
 
 .my-3d-deck-wrapper {
-  flex: 1;
+  position: absolute;
+  bottom: 0;
+  left: 0;
   width: 100%;
-  min-height: 0;
+  height: 480px; /* Extremely tall canvas fanning upwards over the screen */
+  pointer-events: none; /* Crucial: clicks pass through to game elements */
+  z-index: 95; /* Float on top of general interface, below sidebars (which are 100) */
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
 }
 
 .my-3d-deck-wrapper canvas {
   width: 100% !important;
   height: 100% !important;
   outline: none;
+  pointer-events: none; /* Make events pass through */
 }
 
 /* APOCALYPSE OVERLAY MODAL */
@@ -1869,7 +1882,10 @@ p {
     padding: 15px;
   }
   .game-bottom-hand-zone {
-    height: 200px;
+    height: 110px;
+  }
+  .my-3d-deck-wrapper {
+    height: 350px;
   }
 }
 
