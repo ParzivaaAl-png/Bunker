@@ -26,6 +26,7 @@ let gameState = {
   activeSpeakerId: "",
   activeSpeakerCardType: "profession",
   activeSpeakerTime: 60,
+  speakerHasRevealedThisTurn: false, // Rule 3: Track if active speaker has revealed a card this turn
   nominees: [], // players nominated for expulsion
   defenseIdx: 0, // index of nominee currently speaking
   votingActive: false,
@@ -309,11 +310,16 @@ function handleClientMessage(clientPeerId, msg, conn) {
   } else if (msg.type === "REVEAL_CARD") {
     const player = gameState.players.find(p => p.id === clientPeerId);
     if (player && player.isAlive) {
+      // Check Rule 3 constraint: only one card can be opened per turn!
+      if (player.id === gameState.activeSpeakerId && gameState.speakerHasRevealedThisTurn) {
+        return;
+      }
       player.revealed[msg.cardType] = true;
       const cardVal = player.cards[msg.cardType];
       addLocalLog(`Игрок ${player.nickname} раскрыл карту [${getCardCategoryLabel(msg.cardType)}]: "${cardVal}"`, "action");
       if (player.id === gameState.activeSpeakerId) {
         gameState.activeSpeakerCardType = msg.cardType; // Sync in 3D Spotlight
+        gameState.speakerHasRevealedThisTurn = true; // Set turn reveal flag!
       }
       broadcastState();
     }
@@ -643,6 +649,7 @@ function startGame() {
   gameState.activeSpeakerId = gameState.players[0].id;
   gameState.activeSpeakerCardType = "profession"; // Starts unrevealed, up to player to open!
   gameState.activeSpeakerTime = 60; // 1 min
+  gameState.speakerHasRevealedThisTurn = false; // Reset turn reveal flag!
 
   gameState.logs = [];
   addLocalLog("СИСТЕМА: Запуск бункера... Игровые карты розданы выжившим.", "system");
@@ -669,6 +676,7 @@ function nextSpeakerOrPhase() {
       gameState.activeSpeakerCardType = getRoundCardType(gameState.round);
 
       gameState.activeSpeakerTime = gameState.status === "discussion_1" ? 60 : 30;
+      gameState.speakerHasRevealedThisTurn = false; // Reset turn reveal flag!
       addLocalLog(`След. спикер: ${nextSpeaker.nickname}. У него ${gameState.activeSpeakerTime} сек.`, "speech");
       broadcastState();
     } else {
@@ -682,6 +690,7 @@ function nextSpeakerOrPhase() {
       const nextDef = gameState.players.find(p => p.id === gameState.nominees[gameState.defenseIdx]);
       gameState.activeSpeakerId = nextDef.id;
       gameState.activeSpeakerTime = 20; // 20s defense time
+      gameState.speakerHasRevealedThisTurn = false; // Reset turn reveal flag!
       addLocalLog(`Выступает кандидат на изгнание ${nextDef.nickname} (20 секунд).`, "speech");
       broadcastState();
     } else {
@@ -706,6 +715,7 @@ function prevSpeaker() {
     gameState.activeSpeakerId = prevSpeaker.id;
     gameState.activeSpeakerCardType = getRoundCardType(gameState.round); // Reset spotlight card type
     gameState.activeSpeakerTime = gameState.status === "discussion_1" ? 60 : 30;
+    gameState.speakerHasRevealedThisTurn = false; // Reset turn reveal flag!
     addLocalLog(`Возврат хода к спикеру: ${prevSpeaker.nickname}.`, "speech");
     broadcastState();
   }
@@ -724,6 +734,7 @@ function advanceGamePhase() {
     gameState.activeSpeakerId = alivePlayers[0].id;
     gameState.activeSpeakerCardType = getRoundCardType(2); // health
     gameState.activeSpeakerTime = 30;
+    gameState.speakerHasRevealedThisTurn = false; // Reset turn reveal flag!
     addLocalLog("СИСТЕМА: Начат Круг 2. Выберите одну закрытую карту для раскрытия и обоснуйте полезность (30 сек).", "system");
   } else if (roundNum === 2) {
     // Round 2 finished -> Voting 1
@@ -735,6 +746,7 @@ function advanceGamePhase() {
     gameState.activeSpeakerId = alivePlayers[0].id;
     gameState.activeSpeakerCardType = getRoundCardType(4); // hobby
     gameState.activeSpeakerTime = 30;
+    gameState.speakerHasRevealedThisTurn = false; // Reset turn reveal flag!
     addLocalLog("СИСТЕМА: Начат Круг 4. Раскройте четвертую карту (30 сек).", "system");
   } else if (roundNum === 4) {
     // Round 4 finished -> Voting 2
@@ -800,6 +812,7 @@ function finishVoting() {
     const activeDef = gameState.players.find(p => p.id === nominees[0]);
     gameState.activeSpeakerId = activeDef.id;
     gameState.activeSpeakerTime = 20;
+    gameState.speakerHasRevealedThisTurn = false; // Reset turn reveal flag!
 
     addLocalLog(`СИСТЕМА: Номинанты на изгнание: ${nominees.map(id => getPlayerNickname(id)).join(", ")}. Каждому дается 20 сек. на оправдание.`, "system");
     addLocalLog(`Оправдывается ${activeDef.nickname}.`, "speech");
@@ -909,6 +922,7 @@ function advanceAfterExpulsion() {
     gameState.activeSpeakerId = alivePlayers[0].id;
     gameState.activeSpeakerCardType = getRoundCardType(nextRound); // Reset spotlight card type
     gameState.activeSpeakerTime = 30;
+    gameState.speakerHasRevealedThisTurn = false; // Reset turn reveal flag!
 
     addLocalLog(`СИСТЕМА: Начат Круг ${nextRound}. Раскройте следующую карту (30 сек).`, "system");
   }
@@ -942,6 +956,10 @@ function startTimer() {
 // -----------------------------------------------------------------------------
 
 function syncGameUI() {
+  // Expose key game state values to the global window object for deck3d.js reading!
+  window.gameState = gameState;
+  window.myPeerId = myPeerId;
+
   if (gameState.status === "lobby") {
     document.getElementById("screen-lobby").className = "screen active";
     document.getElementById("screen-game").className = "screen";
@@ -1425,15 +1443,29 @@ function revealMyCard(cardType) {
   if (isHost) {
     const p = gameState.players.find(p => p.id === myPeerId);
     if (p) {
+      // Check Rule 3 constraint: only one card can be opened per turn!
+      if (p.id === gameState.activeSpeakerId && gameState.speakerHasRevealedThisTurn) {
+        showNotification("Вы уже раскрыли карту в этот ход!");
+        return;
+      }
+      
       p.revealed[cardType] = true;
       const cardVal = p.cards[cardType];
       addLocalLog(`Игрок ${p.nickname} раскрыл карту [${getCardCategoryLabel(cardType)}]: "${cardVal}"`, "action");
       if (p.id === gameState.activeSpeakerId) {
         gameState.activeSpeakerCardType = cardType; // Sync in 3D Spotlight
+        gameState.speakerHasRevealedThisTurn = true; // Mark as revealed!
       }
       broadcastState();
     }
   } else {
+    // Local client validation check before P2P transmit
+    const isActiveSpeaker = (gameState.activeSpeakerId === myPeerId);
+    if (isActiveSpeaker && gameState.speakerHasRevealedThisTurn) {
+      showNotification("Вы уже раскрыли карту в этот ход!");
+      return;
+    }
+    
     sendToHost({
       type: "REVEAL_CARD",
       cardType: cardType
@@ -1635,6 +1667,7 @@ function initUIEvents() {
       gameState.round = rnd;
       gameState.activeSpeakerId = gameState.players.filter(p => p.isAlive)[0].id;
       gameState.activeSpeakerTime = rnd === 1 ? 60 : 30;
+      gameState.speakerHasRevealedThisTurn = false; // Reset turn reveal flag!
       addLocalLog(`Администратор переключил фазу на Круг ${rnd}.`, "system");
     } else if (val.startsWith("voting")) {
       const vNum = parseInt(val.split("_")[1]);

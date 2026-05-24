@@ -1532,9 +1532,10 @@ p {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 12px;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start; /* Push elements higher towards top */
+  padding-top: 15px; /* Comfortable top padding */
   min-height: 0;
   position: relative;
 }
@@ -1545,7 +1546,7 @@ p {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 25px;
+  padding: 10px 25px;
   flex-shrink: 0;
 }
 
@@ -1569,8 +1570,9 @@ p {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  padding: 20px;
+  justify-content: flex-start; /* Align contents to top */
+  padding: 15px;
+  gap: 8px; /* Close spacing to save space */
   box-sizing: border-box;
 }
 
@@ -1621,8 +1623,8 @@ p {
 
 .speaker-3d-card-wrapper {
   width: 100%;
-  flex: 1;
-  min-height: 0;
+  height: 380px; /* Constrain physical height to sit perfectly in the center stage */
+  min-height: 320px;
   display: flex;
   align-items: center;
   justify-content: center;

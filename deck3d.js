@@ -190,12 +190,12 @@ function drawCardFace(category, text, revealed, color, isRevealedToAll) {
     ctx.lineTo(256, 568);
     ctx.stroke();
 
-    // Large Center Title
-    ctx.shadowBlur = 20;
+    // Large Center Title/Question Mark for unrevealed active cards
+    ctx.shadowBlur = 25;
     ctx.shadowColor = color;
-    ctx.font = "900 68px 'Orbitron', 'Inter', sans-serif";
+    ctx.font = "900 120px 'Orbitron', 'Inter', sans-serif";
     ctx.fillStyle = "#ffffff";
-    ctx.fillText("BUNKER", 256, 405);
+    ctx.fillText("?", 256, 420);
 
     // Warning Badge
     ctx.shadowBlur = 5;
@@ -399,7 +399,7 @@ function update3DDeck(players, myId) {
   
   // Curved layout math along an arc: perfectly tailored for the container-free full viewport to avoid clashing overlap!
   const arcRadius = 8.5;
-  const angleStep = 0.13; // Elegant horizontal spacing to keep text readable!
+  const angleStep = 0.08; // Tight, compact fanning so they are wowed by the deck!
 
   cardCategories.forEach((cat, idx) => {
     const val = myPlayer.cards[cat] || "Скрытая характеристика";
@@ -549,8 +549,8 @@ function update3DSpotlight(activeSpeakerId, players, currentRound, activeSpeaker
 
   spotlight3D.cardMesh = new THREE.Mesh(geom, materials);
   
-  // Scale it up nicely in center, elevated to sit above fanned player cards веер
-  spotlight3D.cardMesh.position.set(0, 0.9, 0);
+  // Scale it up nicely in center of the canvas viewport
+  spotlight3D.cardMesh.position.set(0, 0.2, 0);
 
   // Set rotation based on reveal status!
   // If not revealed, we display the back face: rotation.y = Math.PI (180 degrees)
@@ -750,13 +750,38 @@ function inspectCard(cardMesh) {
     const cat = cardMesh.userData.category;
     const isRev = cardMesh.userData.isRevealed;
 
+    const isActiveSpeaker = (window.gameState && window.gameState.activeSpeakerId === window.myPeerId);
+    const speakerHasRevealed = (window.gameState && window.gameState.speakerHasRevealedThisTurn);
+
     // Bind and configure button reveal logic
     if (isRev) {
       revealBtn.className = "btn btn-primary btn-large hidden"; // Hide reveal if already open
+    } else if (!isActiveSpeaker) {
+      // Rule 4: Disable reveal button if it is not your active speaking turn
+      revealBtn.className = "btn btn-secondary btn-large disabled";
+      revealBtn.innerHTML = `<i class="fa-solid fa-lock"></i> Не ваш ход`;
+      revealBtn.onclick = null;
+      revealBtn.style.opacity = "0.5";
+      revealBtn.style.cursor = "not-allowed";
+      revealBtn.setAttribute("disabled", "true");
+    } else if (speakerHasRevealed) {
+      // Rule 3: Disable reveal button if speaking turn card opening limit is exceeded
+      revealBtn.className = "btn btn-secondary btn-large disabled";
+      revealBtn.innerHTML = `<i class="fa-solid fa-ban"></i> Лимит превышен`;
+      revealBtn.onclick = null;
+      revealBtn.style.opacity = "0.5";
+      revealBtn.style.cursor = "not-allowed";
+      revealBtn.setAttribute("disabled", "true");
     } else {
       revealBtn.className = "btn btn-primary btn-large";
+      revealBtn.innerHTML = `<i class="fa-solid fa-eye"></i> Раскрыть всем игрокам`;
+      revealBtn.style.opacity = "1.0";
+      revealBtn.style.cursor = "pointer";
+      revealBtn.removeAttribute("disabled");
       revealBtn.onclick = () => {
-        revealMyCard(cat);
+        if (window.revealMyCard) {
+          window.revealMyCard(cat);
+        }
         closeCardInspection();
       };
     }
@@ -776,6 +801,13 @@ function closeCardInspection() {
 
   const overlay = document.getElementById("card-inspection-overlay");
   overlay.className = "card-inspection-overlay hidden";
+
+  const revealBtn = document.getElementById("btn-inspect-reveal");
+  if (revealBtn) {
+    revealBtn.removeAttribute("disabled");
+    revealBtn.style.opacity = "";
+    revealBtn.style.cursor = "";
+  }
 
   const cardObj = deck3D.cards.find(c => c.mesh === cardMesh);
   if (cardObj) {
@@ -834,8 +866,8 @@ function animate() {
         spotlight3D.cardMesh.rotation.y += 0.01;
         spotlight3D.cardMesh.rotation.x = Math.sin(time) * 0.2;
       } else {
-        // The real speaker card has gentle bobbing and subtle tilt, elevated above fanning hand
-        spotlight3D.cardMesh.position.y = 0.9 + Math.sin(time * 1.5) * 0.12;
+        // The real speaker card has gentle bobbing and subtle tilt, centered inside the speaker canvas
+        spotlight3D.cardMesh.position.y = 0.2 + Math.sin(time * 1.5) * 0.12;
         
         // Gentle Y rotation oscillation to catch neon reflections
         // Offset by initial rotation (0 if revealed, Math.PI if backcover)
