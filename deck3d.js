@@ -702,18 +702,18 @@ function inspectCard(cardMesh) {
   gsap.killTweensOf(cardMesh.rotation);
   gsap.killTweensOf(cardMesh.scale);
 
-  // Animate card to beautiful center floating position and scale it up 1.8x to make it huge and crystal clear!
+  // Animate card to beautiful center floating position and keep scale at 1.0 to fit perfectly within the viewport bounds
   gsap.to(cardMesh.position, {
     x: 0,
     y: 0.5,
-    z: 5.5, // Perfect distance from camera (Z = 9.0)
+    z: 4.5, // Perfect distance (Z = 4.5) to keep bottom actions bar fully visible
     duration: 0.6,
     ease: "power3.out"
   });
 
   gsap.to(cardMesh.scale, {
-    x: 1.8, // Scale up to 1.8x for absolute text legibility
-    y: 1.8,
+    x: 1.0, // Elegant native 1x scale to avoid covering overlay buttons
+    y: 1.0,
     z: 1.0,
     duration: 0.6,
     ease: "power3.out"
