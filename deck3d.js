@@ -13,7 +13,8 @@ let deck3D = {
   raycaster: new THREE.Raycaster(),
   mouse: new THREE.Vector2(),
   width: 0,
-  height: 0
+  height: 0,
+  lastDeckStateStr: "" // Store serialized player cards state to prevent resetting on hovers/ticks
 };
 
 let spotlight3D = {
@@ -367,6 +368,20 @@ function update3DDeck(players, myId) {
   const myPlayer = players.find(p => p.id === myId);
   if (!myPlayer) return;
 
+  // Rebuild the 3D deck ONLY when the player's cards, revealed status or alive status have actually changed!
+  // This prevents cards from resetting on mouse hover and disappearing during periodic timer ticks.
+  const currentDeckStateStr = JSON.stringify({
+    cards: myPlayer.cards,
+    revealed: myPlayer.revealed,
+    isAlive: myPlayer.isAlive
+  });
+
+  if (deck3D.lastDeckStateStr === currentDeckStateStr && deck3D.scene.children.length > 2) {
+    return; // No changes to the local deck, skip rebuild!
+  }
+
+  deck3D.lastDeckStateStr = currentDeckStateStr;
+
   const cardCategories = ["profession", "health", "biology", "hobby", "phobia", "baggage", "addInfo", "quality"];
   
   // Clear old meshes
@@ -415,7 +430,7 @@ function update3DDeck(players, myId) {
     const angle = Math.PI / 2 - (idx - (totalCards - 1) / 2) * angleStep;
     const x = Math.cos(angle) * arcRadius;
     const y = Math.sin(angle) * arcRadius - arcRadius - 2.80; // Anchor fanning beautifully to sit aligned with bottom edge of viewport
-    const z = 1.2 - Math.abs(idx - (totalCards - 1) / 2) * 0.25; // Arc depth fanning out
+    const z = 0.5 + idx * 0.08; // Beautiful sequential left-to-right fanning layering depth
 
     mesh.position.set(x, y, z);
     
