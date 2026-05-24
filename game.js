@@ -77,12 +77,34 @@ function initPeer(role, nickname, roomCode) {
 
   myPeerId = peerId;
 
-  // Initialize PeerJS
+  // Initialize PeerJS with high-performance STUN/TURN configurations for seamless cross-network P2P NAT Traversal
   peer = new Peer(peerId, {
     host: "0.peerjs.com",
     port: 443,
     secure: true,
-    debug: 1 // Print only errors to console
+    debug: 1, // Print only errors to console
+    config: {
+      iceServers: [
+        // Free Google STUN Servers (resolves NAT traversal for 80% of standard routers)
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+        { urls: "stun:stun2.l.google.com:19302" },
+        { urls: "stun:stun3.l.google.com:19302" },
+        { urls: "stun:stun4.l.google.com:19302" },
+        
+        // Free High-Availability Developer TURN Relay Servers (provided by Metered.ca)
+        // Bypasses Symmetric NAT blockages on mobile 3G/4G/5G networks and corporate firewalls!
+        {
+          urls: [
+            "turn:openrelay.metered.ca:80",
+            "turn:openrelay.metered.ca:443",
+            "turn:openrelay.metered.ca:443?transport=tcp"
+          ],
+          username: "openrelay",
+          credential: "openrelay"
+        }
+      ]
+    }
   });
 
   peer.on("open", (id) => {
