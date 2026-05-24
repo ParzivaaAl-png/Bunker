@@ -329,6 +329,9 @@
     </div>
   </div>
 
+  <!-- Dark Backdrop behind the zoomed 3D card -->
+  <div id="card-inspection-backdrop" class="card-inspection-backdrop hidden" onclick="closeCardInspection()"></div>
+
   <!-- 3D Card Zoom/Inspect Modal overlay (Pops up with beautiful glassmorphism when clicking a card) -->
   <div id="card-inspection-overlay" class="card-inspection-overlay hidden">
     <div class="inspected-card-frame">
@@ -366,6 +369,26 @@
     </button>
     <div class="mic-status-text">
       Микрофон: <span id="mic-status-label" class="muted">Выключен</span>
+    </div>
+  </div>
+
+  <!-- Mobile Bottom-Right Burger Controls (Visible only on mobile) -->
+  <div class="mobile-burger-controls" id="mobile-burger-controls">
+    <button class="btn-circle btn-burger" onclick="toggleMobileBurgerMenu()" title="Открыть меню">
+      <i class="fa-solid fa-bars"></i>
+      <span class="badge logs-badge-burger" id="logs-badge-burger" style="display:none;">!</span>
+    </button>
+    <div class="burger-menu-stack" id="burger-menu-stack">
+      <button class="btn-circle btn-burger-item" onclick="toggleLeftSidebar(); toggleMobileBurgerMenu();" title="Выжившие">
+        <i class="fa-solid fa-users"></i>
+      </button>
+      <button class="btn-circle btn-burger-item" onclick="toggleApocalypseOverlay(); toggleMobileBurgerMenu();" title="Угроза Апокалипсиса">
+        <i class="fa-solid fa-biohazard"></i>
+      </button>
+      <button class="btn-circle btn-burger-item" onclick="toggleRightSidebar(); toggleMobileBurgerMenu();" title="Журнал и Пульт">
+        <i class="fa-solid fa-scroll"></i>
+        <span class="badge logs-badge-burger-item" id="logs-badge-burger-item" style="display:none;">!</span>
+      </button>
     </div>
   </div>
 

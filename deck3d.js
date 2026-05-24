@@ -283,8 +283,9 @@ function init3D() {
     deck3D.scene.add(dirLight);
 
     // Event listener for raycasting on window instead of canvas so pointer-events: none works
-    window.addEventListener("mousemove", onDeckMouseMove);
-    window.addEventListener("pointerdown", onDeckMouseClick);
+    window.addEventListener("pointerdown", onDeckPointerDown);
+    window.addEventListener("pointermove", onDeckPointerMove);
+    window.addEventListener("pointerup", onDeckPointerUp);
   }
 
   // B. Spotlight Active Speaker 3D Card
@@ -325,6 +326,7 @@ function init3D() {
 
 function handleResize() {
   const isMobile = (window.innerWidth < 600);
+  const isGlobalDisc = (window.gameState && window.gameState.status.startsWith("global_discussion"));
 
   // Resizing Deck Canvas
   const deckWrapper = document.querySelector(".my-3d-deck-wrapper");
@@ -336,7 +338,7 @@ function handleResize() {
     // Dynamic responsive Z-distance and Y offset to anchor fanned cards perfectly at the bottom of mobile screens!
     if (isMobile) {
       deck3D.camera.position.z = 11.5;
-      deck3D.camera.position.y = -2.0; // Anchored at the bottom on mobile
+      deck3D.camera.position.y = isGlobalDisc ? 0.0 : -2.0; // Reset camera center during global discussion to let cards fly-in!
     } else {
       deck3D.camera.position.z = 9.0;
       deck3D.camera.position.y = 0.0;
@@ -596,8 +598,9 @@ function update3DDeck(players, myId) {
     const totalCards = cardCategories.length;
     
     // Curved layout math along an arc: perfectly tailored for the container-free full viewport to avoid clashing overlap!
-    const arcRadius = 8.5;
-    const angleStep = 0.08; // Tight, compact fanning so they are wowed by the deck!
+    const isMobile = (window.innerWidth < 600);
+    const arcRadius = isMobile ? 8.0 : 8.5;
+    const angleStep = isMobile ? 0.055 : 0.08; // Super compact and cozy on mobile screens!
 
     cardCategories.forEach((cat, idx) => {
       const val = myPlayer.cards[cat] || "Скрытая характеристика";
@@ -792,10 +795,48 @@ function update3DSpotlight(activeSpeakerId, players, currentRound, activeSpeaker
 // 5. INTERACTIVE RAYCASTING (HOVERS & CLICKS)
 // -----------------------------------------------------------------------------
 
-function onDeckMouseMove(event) {
+let isPointerDown = false;
+
+function onDeckPointerDown(event) {
+  if (!deck3D.scene) return;
+
+  // Only process if the game screen is active and no modal/overlay is open
+  const gameScreen = document.getElementById("screen-game");
+  if (!gameScreen || !gameScreen.classList.contains("active")) return;
+  const apocalypseOverlay = document.getElementById("apocalypse-overlay");
+  if (apocalypseOverlay && !apocalypseOverlay.classList.contains("hidden")) return;
+
+  // Inactive check for expelled/spectator players
+  const myPlayer = window.gameState ? window.gameState.players.find(p => p.id === window.myPeerId) : null;
+  if (myPlayer && !myPlayer.isAlive) return;
+
+  // Ignore clicks on UI elements like buttons, sidebars, capsule bars, top bar, display box, warning bar
+  if (
+    event.target.closest("button") || 
+    event.target.closest(".inspected-card-actions") || 
+    event.target.closest(".floating-voice-controls") || 
+    event.target.closest(".sidebar") ||
+    event.target.closest(".game-top-bar") ||
+    event.target.closest(".spectator-warning-bar") ||
+    event.target.closest(".phase-display-box") ||
+    event.target.closest(".mobile-burger-controls")
+  ) {
+    return;
+  }
+
+  isPointerDown = true;
+  updatePointerCoords(event);
+  raycastHover();
+}
+
+function onDeckPointerMove(event) {
   if (!deck3D.scene || deck3D.inspectedCard) return;
 
-  // 1. Inactive check for expelled/spectator players
+  const gameScreen = document.getElementById("screen-game");
+  if (!gameScreen || !gameScreen.classList.contains("active")) return;
+  const apocalypseOverlay = document.getElementById("apocalypse-overlay");
+  if (apocalypseOverlay && !apocalypseOverlay.classList.contains("hidden")) return;
+
   const myPlayer = window.gameState ? window.gameState.players.find(p => p.id === window.myPeerId) : null;
   if (myPlayer && !myPlayer.isAlive) {
     if (deck3D.hoveredCard) {
@@ -806,25 +847,79 @@ function onDeckMouseMove(event) {
     return;
   }
 
-  // Only process if the game screen is active and no modal/overlay is open
+  updatePointerCoords(event);
+  raycastHover();
+}
+
+function onDeckPointerUp(event) {
+  if (!isPointerDown) return;
+  isPointerDown = false;
+
   const gameScreen = document.getElementById("screen-game");
   if (!gameScreen || !gameScreen.classList.contains("active")) return;
-  const inspectOverlay = document.getElementById("card-inspection-overlay");
-  if (inspectOverlay && !inspectOverlay.classList.contains("hidden")) return;
   const apocalypseOverlay = document.getElementById("apocalypse-overlay");
   if (apocalypseOverlay && !apocalypseOverlay.classList.contains("hidden")) return;
 
+  const myPlayer = window.gameState ? window.gameState.players.find(p => p.id === window.myPeerId) : null;
+  if (myPlayer && !myPlayer.isAlive) return;
+
+  if (
+    event.target.closest("button") || 
+    event.target.closest(".inspected-card-actions") || 
+    event.target.closest(".floating-voice-controls") || 
+    event.target.closest(".sidebar") ||
+    event.target.closest(".game-top-bar") ||
+    event.target.closest(".spectator-warning-bar") ||
+    event.target.closest(".phase-display-box") ||
+    event.target.closest(".mobile-burger-controls")
+  ) {
+    return;
+  }
+
+  if (deck3D.inspectedCard) {
+    if (deck3D.inspectedCard.userData.animating) return;
+    
+    // Check if clicked outside
+    deck3D.raycaster.setFromCamera(deck3D.mouse, deck3D.camera);
+    const intersects = deck3D.raycaster.intersectObjects(deck3D.scene.children);
+    if (intersects.length > 0 && intersects[0].object === deck3D.inspectedCard) {
+      return;
+    }
+    closeCardInspection();
+    return;
+  }
+
+  // Raycast to find which card to zoom inspect on release!
+  deck3D.raycaster.setFromCamera(deck3D.mouse, deck3D.camera);
+  const intersects = deck3D.raycaster.intersectObjects(deck3D.scene.children);
+
+  if (intersects.length > 0) {
+    const clickedMesh = intersects[0].object;
+    if (!clickedMesh.userData.animating) {
+      if (deck3D.hoveredCard) {
+        resetCardHover(deck3D.hoveredCard);
+        deck3D.hoveredCard = null;
+      }
+      inspectCard(clickedMesh);
+    }
+  }
+}
+
+function updatePointerCoords(event) {
   const rect = deck3D.renderer.domElement.getBoundingClientRect();
+  
+  // Use clientX / clientY from pointer events
   deck3D.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
   deck3D.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+}
 
+function raycastHover() {
   deck3D.raycaster.setFromCamera(deck3D.mouse, deck3D.camera);
   const intersects = deck3D.raycaster.intersectObjects(deck3D.scene.children);
 
   if (intersects.length > 0) {
     let topMesh = intersects[0].object;
     
-    // 2. Block hover if the target card is currently playing an animation
     if (topMesh.userData.animating) {
       if (deck3D.hoveredCard) {
         resetCardHover(deck3D.hoveredCard);
@@ -835,18 +930,15 @@ function onDeckMouseMove(event) {
     }
     
     if (deck3D.hoveredCard !== topMesh) {
-      // Reset previous hovered card
       if (deck3D.hoveredCard) {
         resetCardHover(deck3D.hoveredCard);
       }
 
       deck3D.hoveredCard = topMesh;
       
-      // Animate Hover Entry using GSAP
       gsap.killTweensOf(topMesh.position);
       gsap.killTweensOf(topMesh.rotation);
       
-      // Rise up and come closer
       gsap.to(topMesh.position, {
         y: topMesh.position.y + 0.5,
         z: topMesh.position.z + 0.6,
@@ -855,12 +947,11 @@ function onDeckMouseMove(event) {
       });
 
       gsap.to(topMesh.rotation, {
-        x: -0.05, // straighter
+        x: -0.05,
         duration: 0.3,
         ease: "power2.out"
       });
 
-      // Cursor indicator
       document.body.style.cursor = "pointer";
     }
   } else {
@@ -896,66 +987,13 @@ function resetCardHover(cardMesh) {
   }
 }
 
-function onDeckMouseClick(event) {
-  if (!deck3D.scene) return;
-
-  // Only process if the game screen is active and no modal/overlay is open
-  const gameScreen = document.getElementById("screen-game");
-  if (!gameScreen || !gameScreen.classList.contains("active")) return;
-  const apocalypseOverlay = document.getElementById("apocalypse-overlay");
-  if (apocalypseOverlay && !apocalypseOverlay.classList.contains("hidden")) return;
-
-  // 1. Inactive check for expelled/spectator players
-  const myPlayer = window.gameState ? window.gameState.players.find(p => p.id === window.myPeerId) : null;
-  if (myPlayer && !myPlayer.isAlive) return;
-
-  // Ignore clicks on UI elements like buttons, sidebars, capsule bars, top bar, display box, warning bar
-  if (
-    event.target.closest("button") || 
-    event.target.closest(".inspected-card-actions") || 
-    event.target.closest(".floating-voice-controls") || 
-    event.target.closest(".sidebar") ||
-    event.target.closest(".game-top-bar") ||
-    event.target.closest(".spectator-warning-bar") ||
-    event.target.closest(".phase-display-box")
-  ) {
-    return;
-  }
-
-  const rect = deck3D.renderer.domElement.getBoundingClientRect();
-  deck3D.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-  deck3D.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-  deck3D.raycaster.setFromCamera(deck3D.mouse, deck3D.camera);
-  const intersects = deck3D.raycaster.intersectObjects(deck3D.scene.children);
-
-  if (deck3D.inspectedCard) {
-    // Click-to-Close UX: If clicking outside the currently zoomed card, close the inspection!
-    if (intersects.length > 0 && intersects[0].object === deck3D.inspectedCard) {
-      return; // Clicking directly on the zoomed card mesh does nothing
-    }
-    // Block closing if the card is currently returning or animating
-    if (deck3D.inspectedCard.userData.animating) return;
-    closeCardInspection();
-    return;
-  }
-
-  // Normal deck clicking
-  const inspectOverlay = document.getElementById("card-inspection-overlay");
-  if (inspectOverlay && !inspectOverlay.classList.contains("hidden")) return;
-
-  if (intersects.length > 0) {
-    const clickedMesh = intersects[0].object;
-    // 2. Block click if target card is playing fly-in or slide-down animation
-    if (clickedMesh.userData.animating) return;
-    inspectCard(clickedMesh);
-  }
-}
-
 // Bring Card to Face (Zoom inspect directly in 3D center floating space!)
 function inspectCard(cardMesh) {
   deck3D.inspectedCard = cardMesh;
   document.body.style.cursor = "default";
+
+  const backdrop = document.getElementById("card-inspection-backdrop");
+  if (backdrop) backdrop.classList.remove("hidden");
 
   // Hide hovered state triggers
   deck3D.hoveredCard = null;
@@ -1046,6 +1084,9 @@ function closeCardInspection() {
   if (!cardMesh) return;
 
   deck3D.inspectedCard = null; // Reset immediately to prevent interface lockups on state syncs
+
+  const backdrop = document.getElementById("card-inspection-backdrop");
+  if (backdrop) backdrop.classList.add("hidden");
 
   // Restore fanning canvas z-index back to behind sidebars
   document.querySelector(".my-3d-deck-wrapper").classList.remove("inspecting");

@@ -1739,6 +1739,12 @@ function renderLogs() {
   if (sidebar && !sidebar.classList.contains("active")) {
     const badge = document.getElementById("logs-badge");
     if (badge) badge.style.display = "inline-block";
+    
+    const burgerBadge = document.getElementById("logs-badge-burger");
+    if (burgerBadge) burgerBadge.style.display = "inline-block";
+    
+    const burgerBadgeItem = document.getElementById("logs-badge-burger-item");
+    if (burgerBadgeItem) burgerBadgeItem.style.display = "inline-block";
   }
 }
 
@@ -2180,6 +2186,12 @@ function toggleRightSidebar() {
     // Auto hide notification badge when log is opened
     const badge = document.getElementById("logs-badge");
     if (badge) badge.style.display = "none";
+    
+    const burgerBadge = document.getElementById("logs-badge-burger");
+    if (burgerBadge) burgerBadge.style.display = "none";
+    
+    const burgerBadgeItem = document.getElementById("logs-badge-burger-item");
+    if (burgerBadgeItem) burgerBadgeItem.style.display = "none";
   }
 }
 
@@ -2325,3 +2337,17 @@ window.switchControlTab = switchControlTab;
 window.getRoundCardType = getRoundCardType;
 window.skipMyTurn = skipMyTurn;
 window.playEpicExpulsionAnimation = playEpicExpulsionAnimation;
+
+function toggleMobileBurgerMenu() {
+  const stack = document.getElementById("burger-menu-stack");
+  const burgerBtn = document.querySelector(".btn-burger i");
+  if (!stack || !burgerBtn) return;
+  if (stack.classList.contains("active")) {
+    stack.classList.remove("active");
+    burgerBtn.className = "fa-solid fa-bars";
+  } else {
+    stack.classList.add("active");
+    burgerBtn.className = "fa-solid fa-xmark";
+  }
+}
+window.toggleMobileBurgerMenu = toggleMobileBurgerMenu;

@@ -1656,6 +1656,11 @@ p {
   transition: var(--transition-smooth);
 }
 
+/* MOBILE BURGER CONTROLS (Hidden by default on Desktop) */
+.mobile-burger-controls {
+  display: none;
+}
+
 .floating-voice-controls .mic-status-text {
   font-size: 0.9rem;
   color: var(--text-secondary);
@@ -1797,20 +1802,37 @@ body:has(#screen-game.active) .my-3d-deck-wrapper {
   color: var(--neon-red);
 }
 
-/* CARD INSPECTION OVERLAY */
+/* CARD INSPECTION BACKDROP & OVERLAY */
+.card-inspection-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(2, 4, 8, 0.85); /* Deep dark overlay contrast to pop the 3D card */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 600; /* Behind the 3D card wrapper (700) */
+  transition: opacity 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+.card-inspection-backdrop.hidden {
+  display: none !important;
+}
+
 .card-inspection-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(2, 4, 8, 0.75); /* Deep dark overlay contrast to pop the 3D card */
+  background: transparent; /* Backdrop moved behind card */
   z-index: 800; /* Float above fanned 3D canvas wrapper (700) so actions buttons are on top */
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 1;
   transition: opacity 0.3s ease;
+  pointer-events: none; /* Clicks pass to backdrop/card */
 }
 
 .inspected-card-frame {
@@ -2433,27 +2455,9 @@ body:has(#screen-game.active) .my-3d-deck-wrapper {
   }
   
   .top-nav-buttons {
-    width: 100%;
-    justify-content: space-between;
-    gap: 6px;
+    display: none !important; /* Fully hidden, toggled in bottom-right burger menu instead! */
   }
-  
-  .top-nav-buttons button {
-    flex: 1;
-    font-size: 0.75rem;
-    padding: 6px 4px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    min-width: 0;
-  }
-  
-  /* Hide the text in top nav buttons to make room for icons and badges */
-  .btn-text {
-    display: none !important;
-  }
-  
+
   /* 2. Sidebars full screen mode on phones */
   .sidebar {
     width: 100% !important;
@@ -2488,6 +2492,94 @@ body:has(#screen-game.active) .my-3d-deck-wrapper {
     display: none !important; /* Hide to avoid cluttering vertical viewport */
   }
   
+  /* 3b. Mobile Bottom-Right Burger Controls (Floating Action Button) */
+  .mobile-burger-controls {
+    display: block !important;
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000; /* Stand above fanned cards */
+  }
+  
+  .btn-burger {
+    background: var(--bg-dark-gray) !important;
+    border: 1px solid var(--neon-orange) !important;
+    color: var(--neon-orange) !important;
+    box-shadow: 0 0 15px var(--neon-orange-glow) !important;
+    width: 44px !important;
+    height: 44px !important;
+    font-size: 1.15rem !important;
+    position: relative;
+    padding: 0 !important;
+  }
+  
+  .logs-badge-burger {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: var(--neon-red);
+    color: #fff;
+    font-size: 0.65rem;
+    padding: 3px 6px;
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--neon-red);
+    display: inline-block;
+  }
+  
+  .burger-menu-stack {
+    position: absolute;
+    bottom: 55px;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(15px);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+  
+  .burger-menu-stack.active {
+    pointer-events: auto;
+    opacity: 1;
+    transform: translateY(0);
+  }
+  
+  .btn-burger-item {
+    background: var(--bg-panel) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: var(--text-primary) !important;
+    width: 40px !important;
+    height: 40px !important;
+    font-size: 1.0rem !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4) !important;
+    position: relative;
+    padding: 0 !important;
+    transition: var(--transition-smooth);
+  }
+  
+  .btn-burger-item:active {
+    border-color: var(--neon-orange) !important;
+    color: var(--neon-orange) !important;
+    box-shadow: 0 0 10px var(--neon-orange-glow) !important;
+  }
+  
+  .logs-badge-burger-item {
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    background: var(--neon-red);
+    color: #fff;
+    font-size: 0.6rem;
+    padding: 2px 5px;
+    border-radius: 50%;
+  }
+
+  /* 3c. Disable mobile touch scrolling behaviors while fanning cards */
+  .my-3d-deck-wrapper canvas {
+    touch-action: none !important;
+  }
+  
   /* 4. Inspected Card actions button pill capsule positioned ergonomically at the bottom */
   .inspected-card-actions {
     top: auto !important;
@@ -2507,37 +2599,39 @@ body:has(#screen-game.active) .my-3d-deck-wrapper {
   
   /* 5. Compact active speaker spotlight box */
   .speaker-3d-card-wrapper {
-    height: 310px !important;
-    min-height: 250px !important;
-    margin-top: 5px;
+    height: 220px !important; /* Shrunk from 310px to 220px so fanned cards have lots of room! */
+    min-height: 200px !important;
+    margin-top: 2px;
   }
   
   .active-speaker-name-text {
-    font-size: 1.35rem;
-    margin: 4px 0;
+    font-size: 1.15rem !important;
+    margin: 2px 0 !important;
   }
   
   .spotlight-frame {
-    padding: 8px;
-    gap: 4px;
+    padding: 6px !important;
+    gap: 2px !important;
+    border-radius: 12px !important;
   }
   
   .phase-display-box {
-    padding: 6px 15px;
-    gap: 10px;
+    padding: 4px 10px !important;
+    margin-bottom: 2px !important;
+    gap: 6px !important;
   }
   
   .phase-title {
-    font-size: 1.1rem;
+    font-size: 0.92rem !important; /* Shrunk title font */
   }
   
   .phase-details {
-    font-size: 0.72rem;
+    font-size: 0.65rem !important; /* Shrunk details font */
   }
   
   .timer-box {
-    font-size: 1.1rem;
-    padding: 6px 10px;
+    font-size: 0.95rem !important;
+    padding: 4px 8px !important;
   }
   
   /* 6. Dossier horizontal scroll bar for general discussion */
