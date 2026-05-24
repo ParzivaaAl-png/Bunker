@@ -326,22 +326,64 @@ function createSpotlightPlaceholder() {
   if (!spotlight3D.scene) return;
   
   if (spotlight3D.cardMesh) {
-    spotlight3D.scene.remove(spotlight3D.cardMesh);
+    const oldMesh = spotlight3D.cardMesh;
+    
+    // Animate old card mesh down and fade out! (Point 1)
+    gsap.killTweensOf(oldMesh.position);
+    gsap.to(oldMesh.position, {
+      y: -5.0,
+      duration: 0.7,
+      ease: "power2.in",
+      onComplete: () => {
+        spotlight3D.scene.remove(oldMesh);
+        if (oldMesh.geometry) oldMesh.geometry.dispose();
+        if (oldMesh.material) {
+          if (Array.isArray(oldMesh.material)) {
+            oldMesh.material.forEach(mat => {
+              if (mat.map) mat.map.dispose();
+              mat.dispose();
+            });
+          } else {
+            if (oldMesh.material.map) oldMesh.material.map.dispose();
+            oldMesh.material.dispose();
+          }
+        }
+      }
+    });
   }
 
-  // Creating a blank glowing tech hologram shape
+  // Creating a blank glowing tech hologram shape starting small for dynamic scale up
   const geometry = new THREE.OctahedronGeometry(2.5, 0);
   const material = new THREE.MeshPhongMaterial({
     color: 0x00e5ff,
     wireframe: true,
     transparent: true,
-    opacity: 0.25,
+    opacity: 0.0, // Start invisible for smooth fade-in
     emissive: 0x00e5ff,
     emissiveIntensity: 0.3
   });
 
-  spotlight3D.cardMesh = new THREE.Mesh(geometry, material);
-  spotlight3D.scene.add(spotlight3D.cardMesh);
+  const placeholderMesh = new THREE.Mesh(geometry, material);
+  placeholderMesh.scale.set(0.1, 0.1, 0.1); // Start tiny
+  
+  spotlight3D.cardMesh = placeholderMesh;
+  spotlight3D.scene.add(placeholderMesh);
+
+  // Smoothly scale up and fade in! (Point 1)
+  gsap.to(placeholderMesh.scale, {
+    x: 1.0,
+    y: 1.0,
+    z: 1.0,
+    duration: 1.2,
+    ease: "back.out(1.5)",
+    delay: 0.2
+  });
+
+  gsap.to(material, {
+    opacity: 0.25,
+    duration: 1.2,
+    delay: 0.2
+  });
 }
 
 // -----------------------------------------------------------------------------
@@ -368,12 +410,19 @@ function update3DDeck(players, myId) {
   const myPlayer = players.find(p => p.id === myId);
   if (!myPlayer) return;
 
-  // Rebuild the 3D deck ONLY when the player's cards, revealed status or alive status have actually changed!
-  // This prevents cards from resetting on mouse hover and disappearing during periodic timer ticks.
+  const isGlobalDisc = (window.gameState && window.gameState.status.startsWith("global_discussion"));
+  const selPlayerId = window.discussionSelectedPlayerId || "";
+  const selPlayer = players.find(p => p.id === selPlayerId);
+
+  // Rebuild the 3D deck ONLY when the player's cards, revealed status or active dossier selections have changed!
   const currentDeckStateStr = JSON.stringify({
     cards: myPlayer.cards,
     revealed: myPlayer.revealed,
-    isAlive: myPlayer.isAlive
+    isAlive: myPlayer.isAlive,
+    isGlobalDisc: isGlobalDisc,
+    selPlayerId: selPlayerId,
+    selPlayerCards: selPlayer ? selPlayer.cards : null,
+    selPlayerRevealed: selPlayer ? selPlayer.revealed : null
   });
 
   if (deck3D.lastDeckStateStr === currentDeckStateStr && deck3D.scene.children.length > 2) {
@@ -395,75 +444,143 @@ function update3DDeck(players, myId) {
   });
   deck3D.cards = [];
 
-  const totalCards = cardCategories.length;
-  
-  // Curved layout math along an arc: perfectly tailored for the container-free full viewport to avoid clashing overlap!
-  const arcRadius = 8.5;
-  const angleStep = 0.08; // Tight, compact fanning so they are wowed by the deck!
-
-  cardCategories.forEach((cat, idx) => {
-    const val = myPlayer.cards[cat] || "Скрытая характеристика";
-    const isRev = myPlayer.revealed[cat] || false;
-    const color = CATEGORY_INFO[cat]?.color || "#ffffff";
-
-    // Create Canvas textures (passing reveal status to display public outline/lock badges)
-    const frontCanvas = drawCardFace(cat, val, true, color, isRev);
-    const backCanvas = drawCardFace(cat, val, false, color, isRev);
-
-    const frontTex = new THREE.CanvasTexture(frontCanvas);
-    const backTex = new THREE.CanvasTexture(backCanvas);
-
-    // Highly refined smaller playing card sizes for perfect non-clashing visual representation (width = 1.2, height = 1.9)
-    const geom = new THREE.BoxGeometry(1.2, 1.9, 0.04);
+  if (isGlobalDisc) {
+    // General discussion mode: If a player was selected, fly-in their revealed cards side-by-side in center!
+    if (selPlayer) {
+      const selPlayerRevealedCats = cardCategories.filter(cat => selPlayer.revealed[cat]);
+      const spacing = 1.5;
+      const totalWidth = (selPlayerRevealedCats.length - 1) * spacing;
+      
+      selPlayerRevealedCats.forEach((cat, idx) => {
+        const val = selPlayer.cards[cat];
+        const color = CATEGORY_INFO[cat]?.color || "#ffffff";
+        
+        const frontCanvas = drawCardFace(cat, val, true, color, true); // true for revealed front
+        const backCanvas = drawCardFace(cat, val, false, color, true);
+        const frontTex = new THREE.CanvasTexture(frontCanvas);
+        const backTex = new THREE.CanvasTexture(backCanvas);
+        
+        const geom = new THREE.BoxGeometry(1.2, 1.9, 0.04);
+        const sidesMat = new THREE.MeshStandardMaterial({ color: 0x101424, roughness: 0.8 });
+        const materials = [
+          sidesMat, sidesMat, sidesMat, sidesMat,
+          new THREE.MeshPhongMaterial({ map: frontTex, transparent: true }),
+          new THREE.MeshPhongMaterial({ map: backTex, transparent: true })
+        ];
+        const mesh = new THREE.Mesh(geom, materials);
+        
+        // Aligned beautifully in the middle-bottom center, below the octahedron hologram
+        const targetX = idx * spacing - totalWidth / 2;
+        const targetY = -0.3; 
+        const targetZ = 0.5 + idx * 0.05;
+        
+        // Fly in from left off-screen beautifully!
+        mesh.position.set(-12.0, targetY, targetZ);
+        mesh.rotation.set(-0.1, 0, 0); // slight back tilt
+        
+        gsap.to(mesh.position, {
+          x: targetX,
+          duration: 0.8,
+          delay: idx * 0.1,
+          ease: "power3.out"
+        });
+        
+        const defaultPos = new THREE.Vector3(targetX, targetY, targetZ);
+        const defaultRot = mesh.rotation.clone();
+        
+        mesh.userData = {
+          category: cat,
+          text: val,
+          isRevealed: true,
+          color: color,
+          index: idx
+        };
+        
+        deck3D.scene.add(mesh);
+        
+        deck3D.cards.push({
+          mesh: mesh,
+          category: cat,
+          text: val,
+          isRevealed: true,
+          color: color,
+          defaultPos: defaultPos,
+          defaultRot: defaultRot
+        });
+      });
+    }
+  } else {
+    // Standard local player fanned deck
+    const totalCards = cardCategories.length;
     
-    // Materials for 6 faces: Right, Left, Top, Bottom, Front (index 4), Back (index 5)
-    const sidesMat = new THREE.MeshStandardMaterial({ color: 0x101424, roughness: 0.8 });
-    const materials = [
-      sidesMat, sidesMat, sidesMat, sidesMat,
-      new THREE.MeshPhongMaterial({ map: frontTex, transparent: true }), // Front Face
-      new THREE.MeshPhongMaterial({ map: backTex, transparent: true })  // Back Face
-    ];
+    // Curved layout math along an arc: perfectly tailored for the container-free full viewport to avoid clashing overlap!
+    const arcRadius = 8.5;
+    const angleStep = 0.08; // Tight, compact fanning so they are wowed by the deck!
 
-    const mesh = new THREE.Mesh(geom, materials);
-    
-    // Left to right fanning order along the arc
-    const angle = Math.PI / 2 - (idx - (totalCards - 1) / 2) * angleStep;
-    const x = Math.cos(angle) * arcRadius;
-    const y = Math.sin(angle) * arcRadius - arcRadius - 2.80; // Anchor fanning beautifully to sit aligned with bottom edge of viewport
-    const z = 0.5 + idx * 0.08; // Beautiful sequential left-to-right fanning layering depth
+    cardCategories.forEach((cat, idx) => {
+      const val = myPlayer.cards[cat] || "Скрытая характеристика";
+      const isRev = myPlayer.revealed[cat] || false;
+      const color = CATEGORY_INFO[cat]?.color || "#ffffff";
 
-    mesh.position.set(x, y, z);
-    
-    // Tilting cards to face the center/camera along the arc
-    mesh.rotation.y = (angle - Math.PI / 2) * -0.2;
-    mesh.rotation.x = -0.1; // Elegant slight tilt backwards
-    mesh.rotation.z = angle - Math.PI / 2; // Perfect curve/arc rotation
+      // Create Canvas textures (passing reveal status to display public outline/lock badges)
+      const frontCanvas = drawCardFace(cat, val, true, color, isRev);
+      const backCanvas = drawCardFace(cat, val, false, color, isRev);
 
-    // Save defaults
-    const defaultPos = mesh.position.clone();
-    const defaultRot = mesh.rotation.clone();
+      const frontTex = new THREE.CanvasTexture(frontCanvas);
+      const backTex = new THREE.CanvasTexture(backCanvas);
 
-    // Attach card information to the mesh userData
-    mesh.userData = {
-      category: cat,
-      text: val,
-      isRevealed: isRev,
-      color: color,
-      index: idx
-    };
+      // Highly refined smaller playing card sizes for perfect non-clashing visual representation (width = 1.2, height = 1.9)
+      const geom = new THREE.BoxGeometry(1.2, 1.9, 0.04);
+      
+      // Materials for 6 faces: Right, Left, Top, Bottom, Front (index 4), Back (index 5)
+      const sidesMat = new THREE.MeshStandardMaterial({ color: 0x101424, roughness: 0.8 });
+      const materials = [
+        sidesMat, sidesMat, sidesMat, sidesMat,
+        new THREE.MeshPhongMaterial({ map: frontTex, transparent: true }), // Front Face
+        new THREE.MeshPhongMaterial({ map: backTex, transparent: true })  // Back Face
+      ];
 
-    deck3D.scene.add(mesh);
-    
-    deck3D.cards.push({
-      mesh: mesh,
-      category: cat,
-      text: val,
-      isRevealed: isRev,
-      color: color,
-      defaultPos: defaultPos,
-      defaultRot: defaultRot
+      const mesh = new THREE.Mesh(geom, materials);
+      
+      // Left to right fanning order along the arc
+      const angle = Math.PI / 2 - (idx - (totalCards - 1) / 2) * angleStep;
+      const x = Math.cos(angle) * arcRadius;
+      const y = Math.sin(angle) * arcRadius - arcRadius - 2.80; // Anchor fanning beautifully to sit aligned with bottom edge of viewport
+      const z = 0.5 + idx * 0.08; // Beautiful sequential left-to-right fanning layering depth
+
+      mesh.position.set(x, y, z);
+      
+      // Tilting cards to face the center/camera along the arc
+      mesh.rotation.y = (angle - Math.PI / 2) * -0.2;
+      mesh.rotation.x = -0.1; // Elegant slight tilt backwards
+      mesh.rotation.z = angle - Math.PI / 2; // Perfect curve/arc rotation
+
+      // Save defaults
+      const defaultPos = mesh.position.clone();
+      const defaultRot = mesh.rotation.clone();
+
+      // Attach card information to the mesh userData
+      mesh.userData = {
+        category: cat,
+        text: val,
+        isRevealed: isRev,
+        color: color,
+        index: idx
+      };
+
+      deck3D.scene.add(mesh);
+      
+      deck3D.cards.push({
+        mesh: mesh,
+        category: cat,
+        text: val,
+        isRevealed: isRev,
+        color: color,
+        defaultPos: defaultPos,
+        defaultRot: defaultRot
+      });
     });
-  });
+  }
 }
 
 // -----------------------------------------------------------------------------

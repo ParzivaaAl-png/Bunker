@@ -172,6 +172,22 @@
             </div>
           </div>
 
+          <!-- Center Voting overlay panel (Visible only during voting phases) -->
+          <div id="center-voting-overlay" class="center-voting-overlay hidden">
+            <div class="voting-panel-glass card-glass animate-fade-in">
+              <h2 class="voting-panel-title"><i class="fa-solid fa-check-to-slot"></i> Время сделать выбор</h2>
+              <p id="center-voting-instruction" class="voting-panel-instruction">Выберите игрока, которого вы хотите изгнать из убежища:</p>
+              <div class="voting-grid" id="center-voting-buttons-container"></div>
+              <div id="center-my-vote-status" class="center-my-vote-status">Вы еще не проголосовали.</div>
+            </div>
+          </div>
+
+          <!-- Bottom dossier bar (Visible only during global discussion) -->
+          <div id="global-discussion-players-bar" class="global-discussion-players-bar hidden">
+            <div class="bar-title"><i class="fa-solid fa-users"></i> Досье выживших (выберите игрока):</div>
+            <div class="players-list-bar" id="global-discussion-players-list"></div>
+          </div>
+
         </main>
 
         <!-- Right Sidebar: Logs, Chat, Voting, Admin tools -->

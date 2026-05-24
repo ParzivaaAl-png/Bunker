@@ -1933,3 +1933,172 @@ body:has(#screen-game.active) .my-3d-deck-wrapper {
   }
 }
 
+/* =============================================================================
+   10. GLOBAL DISCUSSION & CENTERED VOTING OVERLAYS
+   ============================================================================= */
+
+.global-discussion-players-bar {
+  position: fixed;
+  bottom: 25px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10, 15, 30, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-glow);
+  border-radius: 40px;
+  padding: 10px 25px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 150; /* Above fanned cards wrapper but below overlays */
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  transition: var(--transition-smooth);
+}
+
+.global-discussion-players-bar.hidden {
+  opacity: 0;
+  transform: translate(-50%, 50px);
+  pointer-events: none;
+}
+
+.global-discussion-players-bar .bar-title {
+  font-family: var(--font-title);
+  font-size: 0.8rem;
+  color: var(--neon-cyan);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.global-discussion-players-bar .players-list-bar {
+  display: flex;
+  gap: 12px;
+}
+
+.discussion-player-btn {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-light);
+  color: var(--text-primary);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-family: var(--font-title);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.discussion-player-btn:hover,
+.discussion-player-btn.active {
+  background: var(--neon-cyan-glow);
+  border-color: var(--neon-cyan);
+  color: var(--neon-cyan);
+  box-shadow: 0 0 10px var(--neon-cyan-glow);
+}
+
+/* Centralized Voting */
+.center-voting-overlay {
+  position: absolute;
+  top: 130px;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 650px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200; /* Float above the canvas and placeholder, but below sidebar overlays */
+  pointer-events: auto;
+  box-sizing: border-box;
+  transition: var(--transition-smooth);
+}
+
+.center-voting-overlay.hidden {
+  display: none !important;
+}
+
+.voting-panel-glass {
+  width: 100%;
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  background: rgba(18, 25, 41, 0.88);
+  border: 1px solid var(--border-glow);
+  box-shadow: 0 0 40px var(--neon-red-glow);
+}
+
+.voting-panel-title {
+  font-family: var(--font-title);
+  font-size: 1.8rem;
+  color: var(--neon-red);
+  text-shadow: 0 0 10px var(--neon-red-glow);
+  letter-spacing: 1.5px;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.voting-panel-instruction {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  text-align: center;
+  margin: 0;
+}
+
+.voting-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 15px;
+  width: 100%;
+  margin: 10px 0;
+}
+
+.btn-vote-center {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-light);
+  color: var(--text-primary);
+  padding: 14px 20px;
+  border-radius: 12px;
+  font-family: var(--font-title);
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-transform: uppercase;
+  transition: var(--transition-smooth);
+}
+
+.btn-vote-center:hover {
+  background: rgba(244, 67, 54, 0.08);
+  border-color: var(--neon-red);
+  color: var(--neon-red);
+  box-shadow: 0 0 12px rgba(244, 67, 54, 0.35);
+  transform: translateY(-2px);
+}
+
+.btn-vote-center.selected {
+  background: var(--neon-red);
+  border-color: var(--neon-red);
+  color: #000;
+  box-shadow: 0 0 20px var(--neon-red-glow);
+}
+
+.btn-vote-center.selected:hover {
+  background: hsl(355, 95%, 60%);
+  color: #000;
+}
+
+.center-my-vote-status {
+  font-family: var(--font-title);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+

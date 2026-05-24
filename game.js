@@ -307,37 +307,15 @@ function handleClientMessage(clientPeerId, msg, conn) {
     // By alphabetical check: if existing client ID < new client ID, existing client calls new client.
     // We broadcast the updated player list and the clients will handle the WebRTC calling dynamically.
 
-  } else if (msg.type === "REVEAL_CARD") {
-    const player = gameState.players.find(p => p.id === clientPeerId);
-    if (player && player.isAlive) {
-      // Check Rule 3 constraint: only one card can be opened per turn!
-      if (player.id === gameState.activeSpeakerId && gameState.speakerHasRevealedThisTurn) {
-        return;
-      }
-      player.revealed[msg.cardType] = true;
-      const cardVal = player.cards[msg.cardType];
-      addLocalLog(`Игрок ${player.nickname} раскрыл карту [${getCardCategoryLabel(msg.cardType)}]: "${cardVal}"`, "action");
-      if (player.id === gameState.activeSpeakerId) {
-        gameState.activeSpeakerCardType = msg.cardType; // Sync in 3D Spotlight
-        gameState.speakerHasRevealedThisTurn = true; // Set turn reveal flag!
-      }
-      broadcastState();
-    }
-  } else if (msg.type === "PLAY_SPECIAL") {
-    const player = gameState.players.find(p => p.id === clientPeerId);
-    if (player && player.isAlive) {
-      const card = player.specials[msg.index];
-      if (card && !card.played) {
-        card.played = true;
-        addLocalLog(`🔥 Игрок ${player.nickname} разыграл Специальное Условие: "${card.title}" (${card.text})`, "action");
-        broadcastState();
-      }
-    }
   } else if (msg.type === "SUBMIT_VOTE") {
     const voter = gameState.players.find(p => p.id === clientPeerId);
-    if (voter && voter.isAlive && gameState.status.startsWith("voting")) {
+    if (voter && voter.isAlive && (gameState.status.startsWith("voting") || gameState.status === "voting_final")) {
       voter.vote = msg.candidateId;
-      addLocalLog(`Игрок ${voter.nickname} проголосовал.`, "system");
+      if (msg.candidateId) {
+        addLocalLog(`Игрок ${voter.nickname} проголосовал.`, "system");
+      } else {
+        addLocalLog(`Игрок ${voter.nickname} отменил свой голос.`, "system");
+      }
       broadcastState();
     }
   } else if (msg.type === "MIC_STATUS") {
@@ -660,6 +638,36 @@ function startGame() {
   startTimer();
 }
 
+// Helpers for the new sequential Cycle rules (Point 4)
+function getPhaseAfterDiscussion(roundNum) {
+  if (roundNum === 1) {
+    // Cycle 1: 2 rounds of individual speaker turns in the beginning of the game
+    return "discussion_2";
+  } else if (roundNum === 2) {
+    return "global_discussion_1";
+  } else if (roundNum === 3) {
+    return "global_discussion_2";
+  } else if (roundNum === 4) {
+    return "global_discussion_3";
+  } else if (roundNum === 5) {
+    return "global_discussion_4";
+  } else if (roundNum === 6) {
+    return "global_discussion_5";
+  } else if (roundNum === 7) {
+    return "global_discussion_6";
+  }
+  return "game_over";
+}
+
+function startGlobalDiscussionPhase(phaseName) {
+  if (!isHost) return;
+  gameState.status = phaseName;
+  gameState.activeSpeakerId = ""; // No individual speaker
+  gameState.activeSpeakerTime = 60; // 1 minute general discussion
+  addLocalLog(`📢 Началось общее обсуждение (1 минута)! Все игроки общаются свободно.`, "system");
+  broadcastState();
+}
+
 function nextSpeakerOrPhase() {
   if (!isHost) return;
 
@@ -681,7 +689,19 @@ function nextSpeakerOrPhase() {
       broadcastState();
     } else {
       // Everyone in this round has spoken!
-      advanceGamePhase();
+      const nextPhase = getPhaseAfterDiscussion(gameState.round);
+      if (nextPhase.startsWith("discussion")) {
+        gameState.status = nextPhase;
+        gameState.round = parseInt(nextPhase.split("_")[1]);
+        gameState.activeSpeakerId = alivePlayers[0].id;
+        gameState.activeSpeakerCardType = getRoundCardType(gameState.round);
+        gameState.activeSpeakerTime = 30;
+        gameState.speakerHasRevealedThisTurn = false;
+        addLocalLog(`СИСТЕМА: Начат Круг ${gameState.round}. Выберите одну закрытую карту для раскрытия и обоснуйте полезность (30 сек).`, "system");
+        broadcastState();
+      } else if (nextPhase.startsWith("global_discussion")) {
+        startGlobalDiscussionPhase(nextPhase);
+      }
     }
   } else if (gameState.status === "defense") {
     // Nominees defense speaking
@@ -910,21 +930,28 @@ function advanceAfterExpulsion() {
 
     addLocalLog("🏆 ИГРА ОКОНЧЕНА! Финалисты вошли в Бункер. Оцените шансы выживания группы!", "system");
   } else {
-    // Advance to next discussion round
-    let nextRound = 3;
-    if (currentVoteNum === 1) nextRound = 3;
-    else if (currentVoteNum === 2) nextRound = 5;
-    else if (currentVoteNum === 3) nextRound = 6;
-    else if (currentVoteNum === 4) nextRound = 7;
+    // Advance to next discussion round sequentially according to Cycle rules
+    const nextRound = currentVoteNum + 2; // e.g. voting_1 -> Round 3, voting_2 -> Round 4, etc.
 
-    gameState.status = `discussion_${nextRound}`;
-    gameState.round = nextRound;
-    gameState.activeSpeakerId = alivePlayers[0].id;
-    gameState.activeSpeakerCardType = getRoundCardType(nextRound); // Reset spotlight card type
-    gameState.activeSpeakerTime = 30;
-    gameState.speakerHasRevealedThisTurn = false; // Reset turn reveal flag!
+    if (nextRound > 7) {
+      gameState.status = "game_over";
+      gameState.activeSpeakerId = "";
+      gameState.players.forEach(p => {
+        if (p.isAlive) {
+          for (const k in p.revealed) p.revealed[k] = true;
+        }
+      });
+      addLocalLog("🏆 ИГРА ОКОНЧЕНА! Финалисты вошли в Бункер. Оцените шансы выживания группы!", "system");
+    } else {
+      gameState.status = `discussion_${nextRound}`;
+      gameState.round = nextRound;
+      gameState.activeSpeakerId = alivePlayers[0].id;
+      gameState.activeSpeakerCardType = getRoundCardType(nextRound); // Reset spotlight card type
+      gameState.activeSpeakerTime = 30;
+      gameState.speakerHasRevealedThisTurn = false; // Reset turn reveal flag!
 
-    addLocalLog(`СИСТЕМА: Начат Круг ${nextRound}. Раскройте следующую карту (30 сек).`, "system");
+      addLocalLog(`СИСТЕМА: Начат Круг ${nextRound}. Раскройте следующую карту (30 сек).`, "system");
+    }
   }
 
   broadcastState();
@@ -936,16 +963,21 @@ function startTimer() {
   gameTimerInterval = setInterval(() => {
     if (!isHost) return;
 
-    if (gameState.status.startsWith("discussion") || gameState.status === "defense") {
+    if (gameState.status.startsWith("discussion") || gameState.status === "defense" || gameState.status.startsWith("global_discussion")) {
       if (gameState.activeSpeakerTime > 0) {
         gameState.activeSpeakerTime--;
         
-        // Broadcast time updates occasionally (e.g. every second)
-        // To save bandwidth, we broadcast state every second during timer
+        // Broadcast state updates during active timers
         broadcastState();
       } else {
-        // Active speaker time finished! Move to next speaker
-        nextSpeakerOrPhase();
+        if (gameState.status.startsWith("discussion") || gameState.status === "defense") {
+          nextSpeakerOrPhase();
+        } else if (gameState.status.startsWith("global_discussion")) {
+          // General discussion timer finished! Move to voting
+          const gNum = parseInt(gameState.status.split("_")[2]);
+          startVotingPhase(gNum);
+          broadcastState();
+        }
       }
     }
   }, 1000);
@@ -1012,11 +1044,53 @@ function syncGameUI() {
       speakerTipEl.textContent = "Свободное общение для всех выживших.";
     }
 
+    // Render general discussion players dossier bar if active (Point 2)
+    const isGlobalDisc = gameState.status.startsWith("global_discussion");
+    const globalDiscBar = document.getElementById("global-discussion-players-bar");
+    const globalDiscList = document.getElementById("global-discussion-players-list");
+    
+    if (isGlobalDisc) {
+      if (globalDiscBar) globalDiscBar.classList.remove("hidden");
+      if (globalDiscList) {
+        globalDiscList.innerHTML = "";
+        
+        gameState.players.forEach(p => {
+          if (p.isAlive) {
+            const btn = document.createElement("button");
+            btn.className = "discussion-player-btn";
+            if (window.discussionSelectedPlayerId === p.id) {
+              btn.classList.add("active");
+            }
+            btn.innerHTML = `<i class="fa-solid fa-user-tie"></i> ${p.nickname}`;
+            btn.onclick = () => {
+              // Toggle selection!
+              if (window.discussionSelectedPlayerId === p.id) {
+                window.discussionSelectedPlayerId = "";
+              } else {
+                window.discussionSelectedPlayerId = p.id;
+              }
+              // Force 3D Deck rebuild to fly-in the newly selected player's revealed cards!
+              if (window.update3DDeck) {
+                window.update3DDeck(gameState.players, myPeerId);
+              }
+              // Re-sync UI to show active highlight!
+              syncGameUI();
+            };
+            globalDiscList.appendChild(btn);
+          }
+        });
+      }
+    } else {
+      if (globalDiscBar) globalDiscBar.classList.add("hidden");
+      // Reset selected player when phase changes
+      window.discussionSelectedPlayerId = "";
+    }
+
     // Update timer
     const timerBox = document.getElementById("timer-box");
     const timerLabel = document.getElementById("game-timer");
     
-    if (gameState.status.startsWith("discussion") || gameState.status === "defense") {
+    if (gameState.status.startsWith("discussion") || gameState.status === "defense" || gameState.status.startsWith("global_discussion")) {
       timerBox.className = gameState.activeSpeakerTime <= 10 ? "timer-box warning" : "timer-box";
       const m = Math.floor(gameState.activeSpeakerTime / 60).toString().padStart(2, '0');
       const s = (gameState.activeSpeakerTime % 60).toString().padStart(2, '0');
@@ -1088,6 +1162,10 @@ function updatePhaseLabels() {
     const round = status.split("_")[1];
     titleEl.textContent = `КРУГ ${round}: ${getCardCategoryLabel(getRoundCardType(round))}`;
     detailsEl.textContent = `Каждый игрок по очереди обосновывает полезность своей карты (${round == 1 ? "1 минута" : "30 секунд"}).`;
+  } else if (status.startsWith("global_discussion")) {
+    const gNum = status.split("_")[2];
+    titleEl.textContent = `ОБЩЕЕ ОБСУЖДЕНИЕ ${gNum}`;
+    detailsEl.textContent = "Свободная дискуссия для всех участников (1 минута). Изучите досье внизу экрана!";
   } else if (status === "defense") {
     titleEl.textContent = "ФАЗА ОПРАВДАНИЯ";
     detailsEl.textContent = "Номинанты защищают себя перед группой. У каждого по 20 секунд.";
@@ -1350,32 +1428,51 @@ function renderMyCards() {
 }
 
 function renderVotingControls() {
-  const box = document.getElementById("voting-box");
-  const container = document.getElementById("voting-buttons-container");
-  const myVoteLabel = document.getElementById("my-vote-status");
+  const sidebarBox = document.getElementById("voting-box");
+  const sidebarContainer = document.getElementById("voting-buttons-container");
+  const sidebarMyVoteLabel = document.getElementById("my-vote-status");
+
+  const centerBox = document.getElementById("center-voting-overlay");
+  const centerContainer = document.getElementById("center-voting-buttons-container");
+  const centerMyVoteLabel = document.getElementById("center-my-vote-status");
+
+  const activeSpeakerBox = document.getElementById("active-speaker-box");
 
   const myPlayer = gameState.players.find(p => p.id === myPeerId);
+  const isVotingPhase = (gameState.status.startsWith("voting") || gameState.status === "voting_final");
   
-  // Show voting box only if voting phase is active and player is alive
-  if (!myPlayer || !myPlayer.isAlive || (!gameState.status.startsWith("voting") && gameState.status !== "defense" && gameState.status !== "voting_final")) {
-    box.className = "voting-box card-glass hidden";
+  // Update visibility of center voting overlay vs speaker spotlight (Point 3)
+  if (isVotingPhase && myPlayer && myPlayer.isAlive) {
+    if (activeSpeakerBox) activeSpeakerBox.style.display = "none";
+    if (centerBox) centerBox.classList.remove("hidden");
+  } else {
+    if (activeSpeakerBox) activeSpeakerBox.style.display = "";
+    if (centerBox) centerBox.classList.add("hidden");
+  }
+
+  // Show voting box in sidebar only if voting phase is active and player is alive
+  if (!myPlayer || !myPlayer.isAlive || (!isVotingPhase && gameState.status !== "defense")) {
+    sidebarBox.className = "voting-box card-glass hidden";
     return;
   }
 
-  box.className = "voting-box card-glass";
-  container.innerHTML = "";
+  sidebarBox.className = "voting-box card-glass";
+  sidebarContainer.innerHTML = "";
+  if (centerContainer) centerContainer.innerHTML = "";
 
   // Instruction text
   const instruction = document.getElementById("voting-instruction");
-  if (gameState.status === "voting_final") {
-    instruction.textContent = "Финальный выбор: проголосуйте за изгнание одного из номинантов:";
-  } else {
-    instruction.textContent = "Выберите выжившего для исключения из Бункера:";
-  }
+  const centerInstruction = document.getElementById("center-voting-instruction");
+  const instText = (gameState.status === "voting_final") 
+    ? "Финальный выбор: проголосуйте за изгнание одного из номинантов:" 
+    : "Выберите выжившего для исключения из Бункера:";
+  
+  if (instruction) instruction.textContent = instText;
+  if (centerInstruction) centerInstruction.textContent = instText;
 
   // Generate vote buttons
   const candidates = gameState.players.filter(p => {
-    // Cannot vote for dead players or hosts/themselves (usually can't vote for self)
+    // Cannot vote for dead players or hosts/themselves
     if (!p.isAlive || p.id === myPeerId) return false;
     
     // During final voting, can only vote for nominees
@@ -1388,25 +1485,40 @@ function renderVotingControls() {
   });
 
   candidates.forEach(c => {
+    // 1. Sidebar Button
     const btn = document.createElement("button");
     btn.className = "btn-vote";
     if (myPlayer.vote === c.id) btn.classList.add("selected");
     btn.textContent = c.nickname;
     btn.onclick = () => submitVote(c.id);
-    container.appendChild(btn);
+    sidebarContainer.appendChild(btn);
+
+    // 2. Center Button (Point 3)
+    const centerBtn = document.createElement("button");
+    centerBtn.className = "btn-vote-center";
+    if (myPlayer.vote === c.id) centerBtn.classList.add("selected");
+    centerBtn.innerHTML = `<i class="fa-solid fa-user-xmark"></i> ${c.nickname}`;
+    centerBtn.onclick = () => submitVote(c.id);
+    if (centerContainer) centerContainer.appendChild(centerBtn);
   });
 
+  const emptyMsg = `<p style="font-style:italic; color:var(--text-muted);">Нет доступных кандидатов для голосования (все имеют иммунитет).</p>`;
   if (candidates.length === 0) {
-    container.innerHTML = `<p style="font-style:italic; color:var(--text-muted);">Нет доступных кандидатов для голосования (все имеют иммунитет).</p>`;
+    sidebarContainer.innerHTML = emptyMsg;
+    if (centerContainer) centerContainer.innerHTML = emptyMsg;
   }
 
-  if (myPlayer.vote) {
-    const votedFor = getPlayerNickname(myPlayer.vote);
-    myVoteLabel.textContent = `Ваш голос: против ${votedFor}`;
-    myVoteLabel.style.color = "var(--neon-red)";
-  } else {
-    myVoteLabel.textContent = "Вы еще не проголосовали.";
-    myVoteLabel.style.color = "var(--text-secondary)";
+  const voteText = myPlayer.vote 
+    ? `Ваш голос: против ${getPlayerNickname(myPlayer.vote)}` 
+    : "Вы еще не проголосовали.";
+  const voteColor = myPlayer.vote ? "var(--neon-red)" : "var(--text-secondary)";
+
+  sidebarMyVoteLabel.textContent = voteText;
+  sidebarMyVoteLabel.style.color = voteColor;
+
+  if (centerMyVoteLabel) {
+    centerMyVoteLabel.textContent = voteText;
+    centerMyVoteLabel.style.color = voteColor;
   }
 }
 
@@ -1494,16 +1606,22 @@ function playMySpecial(index) {
 
 function submitVote(candidateId) {
   const myPlayer = gameState.players.find(p => p.id === myPeerId);
-  if (myPlayer.vote === candidateId) return; // already voted
+  if (!myPlayer) return;
+
+  const targetVote = (myPlayer.vote === candidateId) ? null : candidateId;
 
   if (isHost) {
-    myPlayer.vote = candidateId;
-    addLocalLog(`Игрок ${myPlayer.nickname} проголосовал.`, "system");
+    myPlayer.vote = targetVote;
+    if (targetVote) {
+      addLocalLog(`Игрок ${myPlayer.nickname} проголосовал.`, "system");
+    } else {
+      addLocalLog(`Игрок ${myPlayer.nickname} отменил свой голос.`, "system");
+    }
     broadcastState();
   } else {
     sendToHost({
       type: "SUBMIT_VOTE",
-      candidateId: candidateId
+      candidateId: targetVote
     });
   }
 }
@@ -1669,6 +1787,11 @@ function initUIEvents() {
       gameState.activeSpeakerTime = rnd === 1 ? 60 : 30;
       gameState.speakerHasRevealedThisTurn = false; // Reset turn reveal flag!
       addLocalLog(`Администратор переключил фазу на Круг ${rnd}.`, "system");
+    } else if (val.startsWith("global_discussion")) {
+      gameState.status = val;
+      gameState.activeSpeakerId = "";
+      gameState.activeSpeakerTime = 60;
+      addLocalLog(`Администратор переключил фазу на Общее обсуждение.`, "system");
     } else if (val.startsWith("voting")) {
       const vNum = parseInt(val.split("_")[1]);
       startVotingPhase(vNum);
