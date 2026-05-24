@@ -2617,10 +2617,11 @@ body:has(#screen-game.active) .my-3d-deck-wrapper {
   
   /* 5. Compact active speaker spotlight box */
   .speaker-3d-card-wrapper {
-    height: 220px !important; /* Shrunk from 310px to 220px so fanned cards have lots of room! */
-    min-height: 200px !important;
+    height: 250px !important; /* Increased to 250px to make card with question mark significantly larger on mobile */
+    min-height: 230px !important;
     margin-top: 2px;
   }
+
   
   .active-speaker-name-text {
     font-size: 1.15rem !important;

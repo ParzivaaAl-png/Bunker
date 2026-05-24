@@ -356,8 +356,9 @@ function handleResize() {
     const h = speakerWrapper.clientHeight;
     spotlight3D.camera.aspect = w / h;
     
-    // Dynamic speaker card Z-distance for mobile portrait frames (makes it neat and slightly smaller)
-    spotlight3D.camera.position.z = isMobile ? 12.0 : 9.2;
+    // Dynamic speaker card Z-distance for mobile portrait frames (makes it neat and significantly larger)
+    spotlight3D.camera.position.z = isMobile ? 9.6 : 9.2;
+
     
     spotlight3D.camera.updateProjectionMatrix();
     spotlight3D.renderer.setSize(w, h);
@@ -601,7 +602,8 @@ function update3DDeck(players, myId) {
     // Curved layout math along an arc: perfectly tailored for the container-free full viewport to avoid clashing overlap!
     const isMobile = (window.innerWidth < 600);
     const arcRadius = isMobile ? 7.2 : 8.5;
-    const angleStep = isMobile ? 0.05 : 0.08; // Super compact and cozy on mobile screens!
+    const angleStep = isMobile ? 0.04 : 0.08; // Super compact and cozy on mobile screens!
+
 
     cardCategories.forEach((cat, idx) => {
       const val = myPlayer.cards[cat] || "Скрытая характеристика";
@@ -635,8 +637,10 @@ function update3DDeck(players, myId) {
       // Left to right fanning order along the arc
       const angle = Math.PI / 2 - (idx - (totalCards - 1) / 2) * angleStep;
       const x = Math.cos(angle) * arcRadius;
-      const y = Math.sin(angle) * arcRadius - arcRadius - 2.80; // Anchor fanning beautifully to sit aligned with bottom edge of viewport
+      const yAnchor = isMobile ? -2.55 : -2.80; // Raise cards slightly higher on mobile
+      const y = Math.sin(angle) * arcRadius - arcRadius + yAnchor;
       const z = 0.5 + idx * 0.08; // Beautiful sequential left-to-right fanning layering depth
+
 
       mesh.position.set(x, y, z);
       
@@ -1066,7 +1070,7 @@ function inspectCard(cardMesh) {
       revealBtn.setAttribute("disabled", "true");
     } else {
       revealBtn.className = "btn btn-primary btn-large";
-      revealBtn.innerHTML = `<i class="fa-solid fa-eye"></i> Раскрыть всем игрокам`;
+      revealBtn.innerHTML = `<i class="fa-solid fa-eye"></i> Раскрыть`;
       revealBtn.style.opacity = "1.0";
       revealBtn.style.cursor = "pointer";
       revealBtn.removeAttribute("disabled");
@@ -1076,6 +1080,7 @@ function inspectCard(cardMesh) {
         }
         closeCardInspection();
       };
+
     }
 
     overlay.className = "card-inspection-overlay";
