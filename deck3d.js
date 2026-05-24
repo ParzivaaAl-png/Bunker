@@ -389,7 +389,7 @@ function update3DDeck(players, myId) {
       // Left to right fanning order along the arc
       const angle = Math.PI / 2 - (idx - (totalCards - 1) / 2) * angleStep;
       const x = Math.cos(angle) * arcRadius;
-      const y = Math.sin(angle) * arcRadius - arcRadius - 0.25; // Shifted down for perfect fanning and visible tops
+      const y = Math.sin(angle) * arcRadius - arcRadius - 0.45; // Shifted down slightly to fit the taller 520px viewport
       const z = 1.2 - Math.abs(idx - (totalCards - 1) / 2) * 0.25; // Arc depth
 
       mesh.position.set(x, y, z);
@@ -430,11 +430,11 @@ function update3DDeck(players, myId) {
 // 4. SPOTLIGHT SPEAKER CARD BUILDER & ROTATION
 // -----------------------------------------------------------------------------
 
-function update3DSpotlight(activeSpeakerId, players, currentRound) {
+function update3DSpotlight(activeSpeakerId, players, currentRound, activeSpeakerCardType) {
   if (!spotlight3D.scene) return;
 
-  // If speaker or round hasn't changed, skip rebuild (saves processing)
-  const roundCardType = getRoundCardType(currentRound);
+  // Use the active speaker's chosen card type or fallback to the current round type
+  const roundCardType = activeSpeakerCardType || getRoundCardType(currentRound);
 
   const speaker = players.find(p => p.id === activeSpeakerId);
   

@@ -1411,7 +1411,7 @@ p {
   top: 0;
   bottom: 0;
   width: 330px;
-  z-index: 100;
+  z-index: 120;
   display: flex;
   flex-direction: column;
   transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.3s ease;
@@ -1684,17 +1684,22 @@ p {
   margin-right: 4px;
 }
 
+/* Show only when game screen is active */
+body:has(#screen-game.active) .my-3d-deck-wrapper {
+  display: flex !important;
+}
+
 .my-3d-deck-wrapper {
-  position: absolute;
-  bottom: -20px; /* Sits slightly lower for natural bottom bleed */
+  display: none; /* Hidden by default */
+  position: fixed;
+  bottom: -30px; /* Sits slightly lower for natural bottom bleed */
   left: 50%;
   transform: translateX(-50%);
-  width: 100%;
-  max-width: 960px; /* Restricts aspect ratio to perfectly fit and double the visual card scale! */
-  height: 480px; /* Tall canvas for giant vertical fanning */
-  pointer-events: none; /* Clicks pass through empty space to other elements */
-  z-index: 95; /* Float on top of general interface, below sidebars (which are 100) */
-  display: flex;
+  width: 95vw;
+  max-width: 1080px; /* Wider spacious layout for massive cards! */
+  height: 520px; /* Extremely tall canvas fanning upwards over the screen */
+  pointer-events: none; /* Crucial: clicks pass through to game elements */
+  z-index: 105; /* Float on top of general interface, below sidebars (which are 120) */
   align-items: center;
   justify-content: center;
   overflow: visible;

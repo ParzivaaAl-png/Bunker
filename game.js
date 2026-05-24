@@ -24,6 +24,7 @@ let gameState = {
   bunker: null,
   round: 1,
   activeSpeakerId: "",
+  activeSpeakerCardType: "profession",
   activeSpeakerTime: 60,
   nominees: [], // players nominated for expulsion
   defenseIdx: 0, // index of nominee currently speaking
@@ -311,6 +312,9 @@ function handleClientMessage(clientPeerId, msg, conn) {
       player.revealed[msg.cardType] = true;
       const cardVal = player.cards[msg.cardType];
       addLocalLog(`Игрок ${player.nickname} раскрыл карту [${getCardCategoryLabel(msg.cardType)}]: "${cardVal}"`, "action");
+      if (player.id === gameState.activeSpeakerId) {
+        gameState.activeSpeakerCardType = msg.cardType; // Sync in 3D Spotlight
+      }
       broadcastState();
     }
   } else if (msg.type === "PLAY_SPECIAL") {
@@ -637,7 +641,7 @@ function startGame() {
   gameState.status = "discussion_1";
   gameState.round = 1;
   gameState.activeSpeakerId = gameState.players[0].id;
-  gameState.players[0].revealed.profession = true; // Auto reveal active speaker's profession
+  gameState.activeSpeakerCardType = "profession"; // Starts unrevealed, up to player to open!
   gameState.activeSpeakerTime = 60; // 1 min
 
   gameState.logs = [];
@@ -661,11 +665,8 @@ function nextSpeakerOrPhase() {
       // Move to the next player
       const nextSpeaker = alivePlayers[currentSpeakerIdx + 1];
       gameState.activeSpeakerId = nextSpeaker.id;
-      
-      // Auto reveal Profession in Round 1
-      if (gameState.status === "discussion_1") {
-        nextSpeaker.revealed.profession = true;
-      }
+      // Reset spotlight card to the current round category (unrevealed)
+      gameState.activeSpeakerCardType = getRoundCardType(gameState.round);
 
       gameState.activeSpeakerTime = gameState.status === "discussion_1" ? 60 : 30;
       addLocalLog(`След. спикер: ${nextSpeaker.nickname}. У него ${gameState.activeSpeakerTime} сек.`, "speech");
@@ -703,6 +704,7 @@ function prevSpeaker() {
   if (gameState.status.startsWith("discussion") && currentSpeakerIdx > 0) {
     const prevSpeaker = alivePlayers[currentSpeakerIdx - 1];
     gameState.activeSpeakerId = prevSpeaker.id;
+    gameState.activeSpeakerCardType = getRoundCardType(gameState.round); // Reset spotlight card type
     gameState.activeSpeakerTime = gameState.status === "discussion_1" ? 60 : 30;
     addLocalLog(`Возврат хода к спикеру: ${prevSpeaker.nickname}.`, "speech");
     broadcastState();
@@ -720,6 +722,7 @@ function advanceGamePhase() {
     gameState.status = "discussion_2";
     gameState.round = 2;
     gameState.activeSpeakerId = alivePlayers[0].id;
+    gameState.activeSpeakerCardType = getRoundCardType(2); // health
     gameState.activeSpeakerTime = 30;
     addLocalLog("СИСТЕМА: Начат Круг 2. Выберите одну закрытую карту для раскрытия и обоснуйте полезность (30 сек).", "system");
   } else if (roundNum === 2) {
@@ -730,6 +733,7 @@ function advanceGamePhase() {
     gameState.status = "discussion_4";
     gameState.round = 4;
     gameState.activeSpeakerId = alivePlayers[0].id;
+    gameState.activeSpeakerCardType = getRoundCardType(4); // hobby
     gameState.activeSpeakerTime = 30;
     addLocalLog("СИСТЕМА: Начат Круг 4. Раскройте четвертую карту (30 сек).", "system");
   } else if (roundNum === 4) {
@@ -903,6 +907,7 @@ function advanceAfterExpulsion() {
     gameState.status = `discussion_${nextRound}`;
     gameState.round = nextRound;
     gameState.activeSpeakerId = alivePlayers[0].id;
+    gameState.activeSpeakerCardType = getRoundCardType(nextRound); // Reset spotlight card type
     gameState.activeSpeakerTime = 30;
 
     addLocalLog(`СИСТЕМА: Начат Круг ${nextRound}. Раскройте следующую карту (30 сек).`, "system");
@@ -1040,7 +1045,7 @@ function syncGameUI() {
       window.update3DDeck(gameState.players, myPeerId);
     }
     if (window.update3DSpotlight) {
-      window.update3DSpotlight(gameState.activeSpeakerId, gameState.players, gameState.round);
+      window.update3DSpotlight(gameState.activeSpeakerId, gameState.players, gameState.round, gameState.activeSpeakerCardType);
     }
 
     // Render voting controls if voting phase is active
@@ -1418,6 +1423,9 @@ function revealMyCard(cardType) {
       p.revealed[cardType] = true;
       const cardVal = p.cards[cardType];
       addLocalLog(`Игрок ${p.nickname} раскрыл карту [${getCardCategoryLabel(cardType)}]: "${cardVal}"`, "action");
+      if (p.id === gameState.activeSpeakerId) {
+        gameState.activeSpeakerCardType = cardType; // Sync in 3D Spotlight
+      }
       broadcastState();
     }
   } else {
